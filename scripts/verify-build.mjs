@@ -63,6 +63,14 @@ check('Timer builder built', !!page('timer/edit') && page('timer/edit').includes
 const player = page('timer/run');
 check('Timer player built', !!player && player.includes('id="startBtn"') && player.includes('<script'));
 
+const guide = page('guide/how-to-use');
+check('How to Use guide page built', !!guide && guide.includes('md-body'));
+check('Home links to the Start here guide', !!page('') && page('').includes('/guide/how-to-use'));
+const wendler = page('programs/wendler-531');
+check('Program pages use formatted text', !!wendler && wendler.includes('md-body') && !wendler.includes('prose-slate'));
+check('Program pages highlight glossary terms', !!wendler && wendler.includes('class="gloss-term"'));
+check('Program type label is readable', !!wendler && wendler.includes('Monthly cycle'));
+
 // Every highlighted term must point at a real glossary page.
 const pages = allPages();
 const linked = new Set();

@@ -12,7 +12,14 @@ body {
 
 /* Formatted Markdown inside levels and re-teach explanations */
 @layer components {
+  .md-body { overflow-wrap: anywhere; }
   .md-body > * + * { @apply mt-4; }
+  /* The page header already shows the title. */
+  .md-body > h1:first-child { display: none; }
+  .md-body > h1:first-child + * { margin-top: 0; }
+  .md-body hr { @apply my-8 border-slate-200; }
+  .md-body li > p { margin: 0; }
+  .md-body img { @apply rounded-lg max-w-full h-auto; }
   .md-body strong { @apply font-semibold text-slate-900; }
   .md-body em { @apply italic; }
   .md-body a { @apply text-amber-700 underline underline-offset-2 hover:text-amber-900; }
@@ -25,6 +32,10 @@ body {
   .md-body table { @apply block w-full overflow-x-auto text-sm border-collapse; }
   .md-body th { @apply text-left font-semibold bg-slate-100 px-3 py-2 border border-slate-200; }
   .md-body td { @apply px-3 py-2 border border-slate-200 align-top; }
+  /* Headings in long pages (programs, journal, stories) */
+  .md-body h1 { @apply text-3xl font-bold text-slate-900 mt-8; }
+  .md-body h2 { @apply text-xl mt-10 pb-1 border-b border-slate-200; }
+  .md-body h3 { @apply mt-8; }
 }
 
 /* Living glossary */

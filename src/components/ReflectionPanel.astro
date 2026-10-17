@@ -66,6 +66,8 @@ const { templateSlug } = Astro.props;
     };
   }
 
+  const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]);
+
   function buildPrompts(stats: any, entries: any[]): string[] {
     const prompts: string[] = [];
 
@@ -104,9 +106,9 @@ const { templateSlug } = Astro.props;
       const l = stats.byLift[lift];
       const delta = l.last - l.first;
       if (delta > 0) {
-        prompts.push(`<strong>${lift}</strong>: ${l.first} → ${l.last} lbs (+${delta}). What changed?`);
+        prompts.push(`<strong>${esc(lift)}</strong>: ${esc(l.first)} → ${esc(l.last)} lbs (+${delta}). What changed?`);
       } else if (delta < 0) {
-        prompts.push(`<strong>${lift}</strong>: ${l.first} → ${l.last} lbs (${delta}). Deload, reset, or something else?`);
+        prompts.push(`<strong>${esc(lift)}</strong>: ${esc(l.first)} → ${esc(l.last)} lbs (${delta}). Deload, reset, or something else?`);
       }
     });
 
@@ -137,4 +139,5 @@ const { templateSlug } = Astro.props;
   }
 
   paint();
+  window.addEventListener('bible:journal-updated', paint);
 </script>

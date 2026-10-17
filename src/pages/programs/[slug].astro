@@ -10,6 +10,7 @@ export async function getStaticPaths() {
 const { item } = Astro.props;
 const { Content } = await item.render();
 const base = import.meta.env.BASE_URL;
+const typeLabel = (item.data.type ?? 'program').replace(/[-_]+/g, ' ').replace(/^./, (c) => c.toUpperCase());
 ---
 
 <BaseLayout title={item.data.title}>
@@ -18,7 +19,7 @@ const base = import.meta.env.BASE_URL;
     <header class="mt-6 mb-10">
       <div class="text-5xl mb-3">{item.data.icon}</div>
       <h1 class="text-4xl font-bold tracking-tight">{item.data.title}</h1>
-      <p class="text-slate-500 mt-2">{item.data.type ?? 'Program'}</p>
+      <p class="text-slate-500 mt-2">{typeLabel}</p>
     </header>
     {item.data.prerequisites && item.data.prerequisites.length > 0 && (
       <section class="mb-10 p-5 bg-amber-50 border border-amber-200 rounded-lg">
@@ -28,7 +29,7 @@ const base = import.meta.env.BASE_URL;
         </ul>
       </section>
     )}
-    <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed">
+    <div class="md-body text-slate-700 leading-relaxed">
       <Content />
     </div>
   </article>

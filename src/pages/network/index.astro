@@ -11,7 +11,7 @@ const base = import.meta.env.BASE_URL;
       <div class="text-5xl mb-3">🕸️</div>
       <h1 class="text-4xl font-bold tracking-tight">Concept Network</h1>
       <p class="text-slate-600 mt-2 max-w-2xl">
-        Every concept in the B.I.B.L.E., connected to the concepts it relates to. Click a node to open that concept. Hover to highlight its connections.
+        Every concept in the B.I.B.L.E., connected to the concepts it relates to. Tap a circle to see what it connects to; tap it again to open that concept. On a computer, hover to highlight and click to open.
       </p>
     </header>
 
@@ -68,7 +68,7 @@ const base = import.meta.env.BASE_URL;
           </div>
 
           <div class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">
-            Hover a node
+            Selected
           </div>
           <div id="network-hover" class="text-sm text-slate-600 italic">
             Nothing selected
@@ -81,7 +81,7 @@ const base = import.meta.env.BASE_URL;
         <div
           id="network-container"
           class="bg-white border border-slate-200 rounded-lg overflow-hidden"
-          style="height: 720px; position: relative;"
+          style="height: min(720px, 75vh); position: relative;"
         >
           <div id="network-loading" class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
             Loading network...
@@ -89,6 +89,9 @@ const base = import.meta.env.BASE_URL;
           <svg id="network-svg" style="width: 100%; height: 100%; display: block;"></svg>
         </div>
 
+        <div id="network-tap-info" class="lg:hidden mt-3 p-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 italic">
+          Tap a circle to see its connections.
+        </div>
         <p class="text-xs text-slate-500 mt-3">
           Node size and color will grow with your mastery in future updates.
           Mastered concepts will light up their connections to other concepts.
@@ -105,9 +108,12 @@ const base = import.meta.env.BASE_URL;
     (async function () {
       const svg = document.getElementById('network-svg');
       const container = document.getElementById('network-container');
+      let lastTapped = null;
       const loading = document.getElementById('network-loading');
       const statsEl = document.getElementById('network-stats');
-      const hoverEl = document.getElementById('network-hover');
+      const hoverEl = window.matchMedia('(max-width: 1023px)').matches
+        ? document.getElementById('network-tap-info')
+        : document.getElementById('network-hover');
 
       if (!svg || !container) return;
 
@@ -171,6 +177,7 @@ const base = import.meta.env.BASE_URL;
       const width = container.clientWidth;
       const height = container.clientHeight;
 
+      const narrow = width < 600;
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
@@ -195,12 +202,14 @@ const base = import.meta.env.BASE_URL;
           d3
             .forceLink(links)
             .id((d) => d.id)
-            .distance(120)
+            .distance(narrow ? 95 : 120)
             .strength(0.6)
         )
-        .force('charge', d3.forceManyBody().strength(-400))
+        .force('charge', d3.forceManyBody().strength(narrow ? -320 : -400))
         .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collision', d3.forceCollide().radius(38));
+        .force('collision', d3.forceCollide().radius(narrow ? 26 : 38))
+        .force('x', d3.forceX(width / 2).strength(narrow ? 0.04 : 0.02))
+        .force('y', d3.forceY(height / 2).strength(narrow ? 0.02 : 0.02));
 
       // Draw links — mastery-driven styling
       const link = linkGroup
@@ -346,6 +355,14 @@ const base = import.meta.env.BASE_URL;
           hoverEl.textContent = 'Nothing selected';
         })
         .on('click', function (event, d) {
+          // On touch screens there is no hover: first tap highlights, second tap opens.
+          const touch = window.matchMedia('(hover: none)').matches;
+          if (touch && lastTapped !== d.id) {
+            lastTapped = d.id;
+            d3.select(this).dispatch('mouseover');
+            hoverEl.insertAdjacentHTML('beforeend', '<br><span class="text-xs text-amber-700 font-semibold">Tap again to open</span>');
+            return;
+          }
           window.location.href = basePath + '/concepts/' + d.id + '/';
         })
         .call(
@@ -372,7 +389,13 @@ const base = import.meta.env.BASE_URL;
         .style('transition', 'opacity 300ms ease');
 
       // Sim tick
+      // Keep every circle inside the box (small phone screens especially).
+      const PAD = 24;
       simulation.on('tick', () => {
+        nodes.forEach((d) => {
+          d.x = Math.max(PAD, Math.min(width - PAD, d.x));
+          d.y = Math.max(PAD, Math.min(height - PAD, d.y));
+        });
         link
           .attr('x1', (d) => d.source.x)
           .attr('y1', (d) => d.source.y)

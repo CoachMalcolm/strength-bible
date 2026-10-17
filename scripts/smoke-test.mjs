@@ -164,6 +164,35 @@ try {
   const greenShown = await page.locator('#level-1 .cfu-option.bg-green-100').count();
   check('Wrong CFU answer re-teaches without revealing', /Not quite/.test(result || '') && greenShown === 0, result);
 
+  // ---- Start here + journal ----
+  await page.goto(`${BASE}/`);
+  await page.locator('a[href$="/guide/how-to-use"]').first().click();
+  await page.waitForURL(/guide\/how-to-use/);
+  const guideTitle = await page.textContent('h1');
+  check('Start here opens the How to Use guide', /How to Use/.test(guideTitle || ''), guideTitle);
+  await page.goto(`${BASE}/journal/training-log-wendler-531`);
+  const dateVal = await page.inputValue('.journal-form input[name="date"]');
+  check('Journal date defaults to today', /^\d{4}-\d{2}-\d{2}$/.test(dateVal), dateVal);
+  await page.fill('.journal-form input[name="lift"]', 'Back Squat <b>x</b>');
+  await page.fill('.journal-form input[name="weight"]', '225');
+  await page.fill('.journal-form input[name="reps"]', '5');
+  await page.fill('.journal-form input[name="rpe"]', '8');
+  await page.click('.save-entry-btn');
+  await page.waitForTimeout(200);
+  const entryText = await page.textContent('.entries-content');
+  const injected = await page.locator('.entries-content b').count();
+  check('Journal entry saves and shows (text is escaped)', /Back Squat <b>x<\/b>/.test(entryText || '') && injected === 0, (entryText || '').trim().slice(0, 80));
+  const reflection = await page.textContent('.reflection-content');
+  check('Reflection panel updates right after saving', !/No entries yet|Log some sessions/.test(reflection || ''), (reflection || '').trim().slice(0, 80));
+  await page.reload();
+  check('Journal entry survives a reload', /Back Squat/.test((await page.textContent('.entries-content')) || ''));
+  for (const path of ['/journal/story-tracker', '/journal/mastery-tracker', '/programs/wendler-531', '/network']) {
+    await page.goto(`${BASE}${path}`);
+    await page.waitForTimeout(300);
+    const w = await page.evaluate(() => document.documentElement.scrollWidth);
+    check(`${path} fits a phone screen`, w <= 392, `${w}px`);
+  }
+
   check('No JavaScript errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 } catch (e) {
   check('Smoke test ran to the end', false, String(e).slice(0, 300));

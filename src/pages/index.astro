@@ -7,11 +7,12 @@ const lifts = (await getCollection('lifts')).sort((a, b) => (a.data.order ?? 99)
 const bodyweight = (await getCollection('bodyweight')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 const mobility = (await getCollection('mobility')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 const programs = (await getCollection('programs')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
+const guide = (await getCollection('front-matter')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 const base = import.meta.env.BASE_URL;
 
 const sections = [
   { title: 'Concepts', items: concepts, path: 'concepts', blurb: 'Foundational ideas that drive training.' },
-  { title: 'Training Programs', items: programs, path: 'programs', blurb: 'Nine programs from foundation to specialization.' },
+  { title: 'Training Programs', items: programs, path: 'programs', blurb: `${programs.length} programs, from foundation to specialization.` },
   { title: 'Lifts', items: lifts, path: 'lifts', blurb: 'The main barbell lifts, taught at four levels.' },
   { title: 'Bodyweight', items: bodyweight, path: 'bodyweight', blurb: 'Movements that build strength without equipment.' },
   { title: 'Mobility', items: mobility, path: 'mobility', blurb: 'Flows that keep you moving well.' },
@@ -25,6 +26,27 @@ const sections = [
     <p class="text-slate-500 max-w-2xl">
       A progressive, interactive training system for anyone serious about understanding and developing strength.
     </p>
+  </section>
+
+  <section class="mb-14 p-5 md:p-6 bg-white border border-amber-200 rounded-xl">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-amber-700 mb-4">Start here</h2>
+    <ol class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {guide.map((g, i) => (
+        <li>
+          <a href={`${base}/guide/${g.slug}`} class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-amber-400 hover:bg-amber-50 transition">
+            <span class="w-7 h-7 shrink-0 grid place-items-center rounded-full bg-slate-900 text-white text-sm font-bold">{i + 1}</span>
+            <span class="text-xl">{g.data.icon}</span>
+            <span class="font-semibold text-slate-900">{g.data.title}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+    <div class="flex flex-wrap gap-2 mt-4 text-sm">
+      <a href={`${base}/concepts/progressive-overload`} class="px-3 py-1.5 rounded-full bg-slate-900 text-white font-semibold hover:bg-slate-700">First concept: Progressive Overload &rarr;</a>
+      <a href={`${base}/glossary`} class="px-3 py-1.5 rounded-full border border-slate-300 bg-white hover:border-amber-400">Glossary</a>
+      <a href={`${base}/timer`} class="px-3 py-1.5 rounded-full border border-slate-300 bg-white hover:border-amber-400">Timer</a>
+      <a href={`${base}/journal`} class="px-3 py-1.5 rounded-full border border-slate-300 bg-white hover:border-amber-400">Journal</a>
+    </div>
   </section>
 
   {sections.map(section => (

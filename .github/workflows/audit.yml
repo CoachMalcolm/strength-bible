@@ -1,0 +1,39 @@
+name: Site audit
+
+# Full-site sweep at phone size: broken links, script errors, raw formatting,
+# pages wider than the screen, plus screenshots of key pages.
+# Results are published to the `audit-reports` branch (report.md + screens/).
+on:
+  push:
+    branches: [ 'audit/**', jamie-review ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Audit
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+          npx astro preview --port 4321 > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4321/strength-bible/ > /dev/null && break; sleep 1; done
+          node scripts/site-audit.mjs
+      - name: Publish report to the audit-reports branch
+        run: |
+          mkdir -p /tmp/report && cp -r audit/. /tmp/report/
+          cd /tmp/report
+          git init -q && git checkout -q -b audit-reports
+          git config user.name "site-audit" && git config user.email "site-audit@users.noreply.github.com"
+          git add . && git commit -q -m "Audit of ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" audit-reports

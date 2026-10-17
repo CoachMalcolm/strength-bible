@@ -1,0 +1,35 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const items = (await getCollection('front-matter')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
+  return items.map((item, i) => ({
+    params: { slug: item.slug },
+    props: { item, next: items[i + 1] ?? null, prev: items[i - 1] ?? null },
+  }));
+}
+
+const { item, next, prev } = Astro.props;
+const { Content } = await item.render();
+const base = import.meta.env.BASE_URL;
+---
+<BaseLayout title={item.data.title}>
+  <article class="max-w-3xl">
+    <a href={base} class="text-sm text-slate-500 hover:text-amber-600">&larr; Home</a>
+    <header class="mt-6 mb-10">
+      <div class="text-5xl mb-3">{item.data.icon}</div>
+      <h1 class="text-4xl font-bold tracking-tight">{item.data.title}</h1>
+      <p class="text-slate-500 mt-2">Start here</p>
+    </header>
+    <div class="md-body text-slate-700 leading-relaxed">
+      <Content />
+    </div>
+    <nav class="mt-14 pt-6 border-t border-slate-200 flex flex-wrap justify-between gap-3 text-sm">
+      {prev ? <a href={`${base}/guide/${prev.slug}`} class="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:border-amber-400">&larr; {prev.data.title}</a> : <span />}
+      {next
+        ? <a href={`${base}/guide/${next.slug}`} class="px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-700">Next: {next.data.title} &rarr;</a>
+        : <a href={`${base}/concepts/progressive-overload`} class="px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-700">Start your first concept: Progressive Overload &rarr;</a>}
+    </nav>
+  </article>
+</BaseLayout>

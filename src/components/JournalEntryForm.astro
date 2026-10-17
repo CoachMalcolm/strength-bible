@@ -66,7 +66,15 @@ const { templateSlug } = Astro.props;
   }
 
   function saveEntries(entries: any[]) {
-    localStorage.setItem(PREFIX + 'journal', JSON.stringify(entries));
+    try { localStorage.setItem(PREFIX + 'journal', JSON.stringify(entries)); } catch {}
+    window.dispatchEvent(new CustomEvent('bible:journal-updated'));
+  }
+
+  const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+  function today() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   function renderEntries(templateSlug: string) {
@@ -81,13 +89,13 @@ const { templateSlug } = Astro.props;
     container.innerHTML = filtered.map(e => `
       <div class="p-4 bg-white border border-slate-200 rounded-lg">
         <div class="flex items-center justify-between mb-2">
-          <span class="font-medium">${e.date}</span>
-          <button class="delete-entry-btn text-xs text-red-600 hover:text-red-800" data-id="${e.id}">Delete</button>
+          <span class="font-medium">${esc(e.date)}</span>
+          <button class="delete-entry-btn text-xs text-red-600 hover:text-red-800" data-id="${esc(e.id)}">Delete</button>
         </div>
         <div class="text-sm text-slate-600">
-          ${e.data.lift ? `<div><strong>${e.data.lift}</strong> — ${e.data.weight || '?'} × ${e.data.sets || '?'} × ${e.data.reps || '?'} @ RPE ${e.data.rpe || '?'}</div>` : ''}
-          ${e.data.readiness ? `<div>Readiness: ${e.data.readiness}/10</div>` : ''}
-          ${e.data.notes ? `<div class="mt-2 italic">${e.data.notes}</div>` : ''}
+          ${e.data.lift ? `<div><strong>${esc(e.data.lift)}</strong> — ${esc(e.data.weight || '?')} × ${esc(e.data.sets || '?')} × ${esc(e.data.reps || '?')} @ RPE ${esc(e.data.rpe || '?')}</div>` : ''}
+          ${e.data.readiness ? `<div>Readiness: ${esc(e.data.readiness)}/10</div>` : ''}
+          ${e.data.notes ? `<div class="mt-2 italic">${esc(e.data.notes)}</div>` : ''}
         </div>
       </div>
     `).join('');
@@ -139,6 +147,8 @@ const { templateSlug } = Astro.props;
 
   const form = document.querySelector('.journal-form') as HTMLElement;
   if (form) {
+    const dateInput = form.querySelector('input[name="date"]') as HTMLInputElement | null;
+    if (dateInput && !dateInput.value) dateInput.value = today();
     renderEntries(form.dataset.templateSlug || '');
   }
 </script>
