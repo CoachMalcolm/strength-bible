@@ -1,0 +1,151 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+<BaseLayout title="Timer">
+  <div id="timerLib" data-base={base} class="max-w-3xl">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-4xl font-bold">Timer</h1>
+        <p class="text-slate-600 mt-1">Intervals, circuits, rest timers. Build your own or start from a preset.</p>
+      </div>
+      <a href={`${base}/timer/edit`} class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-700">+ New timer</a>
+    </div>
+
+    <section class="mb-10">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">Your timers</h2>
+      <ul id="myTimers" class="space-y-3"></ul>
+      <p id="myEmpty" class="hidden p-5 bg-white border border-dashed border-slate-300 rounded-lg text-slate-600">
+        No timers saved on this device yet. Tap <strong>+ New timer</strong>, or customize a preset below.
+      </p>
+    </section>
+
+    <section>
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">Presets</h2>
+      <ul id="presetTimers" class="space-y-3"></ul>
+    </section>
+
+    <p class="text-xs text-slate-500 mt-10">Timers are saved in this browser. Use <strong>Share</strong> to send one to another phone; the link carries the whole timer.</p>
+  </div>
+
+  <div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-6 z-50 hidden px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm shadow-lg"></div>
+</BaseLayout>
+
+<script>
+  import { presets, expand, formatClock, colorFor, type Timer } from '../../lib/timer/model';
+  import { listTimers, saveTimer, deleteTimer, encodeShare } from '../../lib/timer/store';
+  import { newId } from '../../lib/timer/model';
+
+  const root = document.getElementById('timerLib') as HTMLElement;
+  const base = root.dataset.base || '';
+
+  function toast(msg: string) {
+    const t = document.getElementById('toast')!;
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout((t as any)._h);
+    (t as any)._h = setTimeout(() => t.classList.add('hidden'), 2600);
+  }
+
+  function shareUrl(t: Timer) {
+    return `${location.origin}${base}/timer/run#t=${encodeShare(t)}`;
+  }
+
+  async function share(t: Timer) {
+    const url = shareUrl(t);
+    try {
+      if (navigator.share) { await navigator.share({ title: t.timerName, text: `Timer: ${t.timerName}`, url }); return; }
+    } catch (e: any) { if (e?.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); toast('Share link copied'); }
+    catch { prompt('Copy this link:', url); }
+  }
+
+  function btn(label: string, cls: string, onClick: () => void) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.className = cls;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function link(label: string, href: string, cls: string) {
+    const a = document.createElement('a');
+    a.textContent = label;
+    a.href = href;
+    a.className = cls;
+    return a;
+  }
+
+  const SMALL = 'px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:border-slate-500';
+
+  function card(t: Timer, isPreset: boolean) {
+    const steps = expand(t.structure);
+    const total = steps.reduce((s, x) => s + x.duration, 0);
+    const li = document.createElement('li');
+    li.className = 'bg-white border border-slate-200 rounded-lg p-4';
+
+    const top = document.createElement('div');
+    top.className = 'flex items-start gap-3';
+    const bar = document.createElement('div');
+    bar.className = 'flex flex-col gap-0.5 pt-1';
+    (t.structure as any[]).slice(0, 5).forEach((b) => {
+      const d = document.createElement('span');
+      d.className = 'block w-2 h-2 rounded-full';
+      d.style.background = colorFor(b);
+      bar.appendChild(d);
+    });
+    const text = document.createElement('div');
+    text.className = 'min-w-0 flex-1';
+    const name = document.createElement('div');
+    name.className = 'font-semibold text-slate-900';
+    name.textContent = t.timerName;
+    const meta = document.createElement('div');
+    meta.className = 'text-sm text-slate-500';
+    meta.textContent = `${formatClock(total)} · ${steps.length} interval${steps.length === 1 ? '' : 's'}`;
+    text.append(name, meta);
+    if (t.notes) {
+      const n = document.createElement('div');
+      n.className = 'text-sm text-slate-600 mt-1';
+      n.textContent = t.notes;
+      text.appendChild(n);
+    }
+    const startA = link('Start', `${base}/timer/run?id=${encodeURIComponent(t.timerId)}`,
+      'shrink-0 px-4 py-2 rounded-lg bg-lime-400 text-slate-900 font-bold hover:bg-lime-300');
+    top.append(bar, text, startA);
+
+    const actions = document.createElement('div');
+    actions.className = 'flex flex-wrap gap-2 mt-3';
+    if (isPreset) {
+      actions.append(link('Customize', `${base}/timer/edit?from=${encodeURIComponent(t.timerId)}`, SMALL));
+      actions.append(btn('Share', SMALL, () => share(t)));
+    } else {
+      actions.append(link('Edit', `${base}/timer/edit?id=${encodeURIComponent(t.timerId)}`, SMALL));
+      actions.append(btn('Duplicate', SMALL, () => {
+        saveTimer({ ...t, timerId: newId(), timerName: `${t.timerName} (copy)` });
+        render();
+        toast('Duplicated');
+      }));
+      actions.append(btn('Share', SMALL, () => share(t)));
+      actions.append(btn('Delete', SMALL + ' !text-red-700 hover:!border-red-400', () => {
+        if (!confirm(`Delete “${t.timerName}”? This can’t be undone.`)) return;
+        deleteTimer(t.timerId);
+        render();
+      }));
+    }
+    li.append(top, actions);
+    return li;
+  }
+
+  function render() {
+    const mine = listTimers();
+    const myList = document.getElementById('myTimers')!;
+    myList.innerHTML = '';
+    mine.forEach((t) => myList.appendChild(card(t, false)));
+    document.getElementById('myEmpty')!.classList.toggle('hidden', mine.length > 0);
+    const pl = document.getElementById('presetTimers')!;
+    pl.innerHTML = '';
+    presets().forEach((t) => pl.appendChild(card(t, true)));
+  }
+
+  render();
+</script>

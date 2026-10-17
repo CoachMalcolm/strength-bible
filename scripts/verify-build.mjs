@@ -57,6 +57,12 @@ if (rpe) {
   check('Term page lists where it appears', appears);
 }
 
+const timerLib = page('timer');
+check('Timer library built', !!timerLib && timerLib.includes('id="presetTimers"'));
+check('Timer builder built', !!page('timer/edit') && page('timer/edit').includes('id="ivDialog"'));
+const player = page('timer/run');
+check('Timer player built', !!player && player.includes('id="startBtn"') && player.includes('<script'));
+
 // Every highlighted term must point at a real glossary page.
 const pages = allPages();
 const linked = new Set();

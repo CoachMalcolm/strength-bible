@@ -1,0 +1,462 @@
+---
+/**
+ * Timer player. Full-screen, phone-first.
+ *   /timer/run?id=<timerId>   a saved timer or preset
+ *   /timer/run#t=<code>       a shared timer (the whole timer is in the link)
+ */
+import '../../styles/global.css';
+const base = import.meta.env.BASE_URL;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1115" />
+  <title>Timer — The Strength B.I.B.L.E.</title>
+</head>
+<body class="tp" data-base={base}>
+  <!-- START -->
+  <section id="startScreen" class="tp-screen tp-start">
+    <a href={`${base}/timer`} class="tp-back">&larr; Timers</a>
+    <div class="tp-start-card">
+      <h1 id="startTitle" class="tp-title">Loading…</h1>
+      <p id="startMeta" class="tp-meta"></p>
+      <p id="startNotes" class="tp-notes hidden"></p>
+      <ol id="startList" class="tp-start-list"></ol>
+      <div class="tp-toggles" role="group" aria-label="Alerts">
+        <label><input type="checkbox" id="optVoice" /> Voice</label>
+        <label><input type="checkbox" id="optBeeps" /> Beeps</label>
+        <label><input type="checkbox" id="optVibrate" /> Vibrate</label>
+      </div>
+      <button id="startBtn" class="tp-start-btn" disabled>START</button>
+      <button id="saveSharedBtn" class="tp-link-btn hidden">Save to my timers</button>
+      <p id="startError" class="tp-error hidden"></p>
+    </div>
+  </section>
+
+  <!-- RUNNING -->
+  <section id="runScreen" class="tp-screen tp-run hidden" aria-live="off">
+    <div class="tp-top">
+      <div id="stepRound" class="tp-round"></div>
+      <div id="stepName" class="tp-step-name"></div>
+      <div id="clock" class="tp-clock" role="timer">0:00</div>
+      <div class="tp-progress"><div id="progress" class="tp-progress-bar"></div></div>
+      <div id="nextUp" class="tp-next"></div>
+      <div class="tp-stats">
+        <div><span>Elapsed</span><strong id="statElapsed">0:00</strong></div>
+        <div><span>Interval</span><strong id="statInterval">0/0</strong></div>
+        <div><span>Remaining</span><strong id="statRemaining">0:00</strong></div>
+      </div>
+    </div>
+
+    <ol id="runList" class="tp-run-list"></ol>
+
+    <nav class="tp-controls" aria-label="Timer controls">
+      <button id="exitBtn" class="tp-ctl" aria-label="Exit">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <button id="backBtn" class="tp-ctl" aria-label="Previous interval">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+      </button>
+      <button id="pauseBtn" class="tp-ctl tp-ctl-main" aria-label="Pause">
+        <svg id="pauseIcon" viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+        <svg id="playIcon" class="hidden" viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>
+      </button>
+      <button id="skipBtn" class="tp-ctl" aria-label="Next interval">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+      </button>
+      <button id="lockBtn" class="tp-ctl" aria-label="Lock screen">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      </button>
+    </nav>
+
+    <div id="lockOverlay" class="tp-lock hidden">
+      <button id="unlockBtn" class="tp-unlock">
+        <span class="tp-unlock-fill" id="unlockFill"></span>
+        <span class="tp-unlock-label">Hold to unlock</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- DONE -->
+  <section id="doneScreen" class="tp-screen tp-start hidden">
+    <div class="tp-start-card">
+      <div class="tp-done-mark">✓</div>
+      <h1 class="tp-title">Done</h1>
+      <p id="doneSummary" class="tp-meta"></p>
+      <button id="againBtn" class="tp-start-btn">Run again</button>
+      <a href={`${base}/timer`} class="tp-link-btn">Back to timers</a>
+    </div>
+  </section>
+
+  <script>
+    import { expand, formatClock, colorFor, cuesFor, type Timer, type Step } from '../../lib/timer/model';
+    import { getTimer, decodeShare, saveTimer, isPreset } from '../../lib/timer/store';
+    import { TimerEngine } from '../../lib/timer/engine';
+    import { unlock, sounds, speak, stopSpeaking, vibrate, keepAwake } from '../../lib/timer/feedback';
+
+    const $ = (id: string) => document.getElementById(id) as HTMLElement;
+    const base = document.body.dataset.base || '';
+    const OPTS_KEY = 'bible:timer-options';
+
+    let timer: Timer | null = null;
+    let steps: Step[] = [];
+    let engine: TimerEngine | null = null;
+    let tickHandle: number | undefined;
+    let sharedTimer: Timer | null = null;
+    let leaving = false;
+
+    // ---------- Load ----------
+    function load() {
+      const params = new URLSearchParams(location.search);
+      const hash = new URLSearchParams(location.hash.slice(1));
+      const code = hash.get('t');
+      const id = params.get('id');
+
+      if (code) {
+        sharedTimer = decodeShare(code);
+        timer = sharedTimer;
+        if (timer) $('saveSharedBtn').classList.remove('hidden');
+      } else if (id) {
+        timer = getTimer(id);
+      }
+
+      if (!timer) {
+        $('startTitle').textContent = 'Timer not found';
+        showError(code ? 'This share link looks broken. Ask for it to be sent again.' : 'This timer isn’t saved on this device.');
+        return;
+      }
+      steps = expand(timer.structure);
+      if (!steps.length) { showError('This timer has no intervals yet.'); return; }
+
+      document.title = `${timer.timerName} — Timer`;
+      $('startTitle').textContent = timer.timerName;
+      const total = steps.reduce((s, x) => s + x.duration, 0);
+      $('startMeta').textContent = `${formatClock(total)} · ${steps.length} interval${steps.length === 1 ? '' : 's'}`;
+      if (timer.notes) { $('startNotes').textContent = timer.notes; $('startNotes').classList.remove('hidden'); }
+      renderStartList();
+      loadOptions();
+      ($('startBtn') as HTMLButtonElement).disabled = false;
+    }
+
+    function renderStartList() {
+      // A compact preview: group repeated circuits as "× rounds".
+      const list = $('startList');
+      list.innerHTML = '';
+      for (const block of timer!.structure as any[]) {
+        const li = document.createElement('li');
+        const dot = document.createElement('span');
+        dot.className = 'tp-dot';
+        dot.style.background = colorFor(block);
+        li.appendChild(dot);
+        const label = document.createElement('span');
+        if (block.type === 'circuit') {
+          const inner = (block.intervals || []).map((i: any) => `${i.name} ${formatClock(i.duration)}`).join(' / ');
+          label.textContent = `${block.name}: ${inner} × ${block.rounds}`;
+        } else {
+          label.textContent = `${block.name} ${formatClock(block.duration)}`;
+        }
+        li.appendChild(label);
+        list.appendChild(li);
+      }
+    }
+
+    // ---------- Options (voice / beeps / vibrate), remembered per device ----------
+    function loadOptions() {
+      const cues = cuesFor(timer!);
+      let saved: any = {};
+      try { saved = JSON.parse(localStorage.getItem(OPTS_KEY) || '{}'); } catch {}
+      ($('optVoice') as HTMLInputElement).checked = saved.voice ?? cues.voice;
+      ($('optBeeps') as HTMLInputElement).checked = saved.beeps ?? cues.beeps;
+      ($('optVibrate') as HTMLInputElement).checked = saved.vibrate ?? cues.vibrate;
+      if (!('vibrate' in navigator)) ($('optVibrate').parentElement as HTMLElement).classList.add('hidden');
+    }
+    function opts() {
+      return {
+        voice: ($('optVoice') as HTMLInputElement).checked,
+        beeps: ($('optBeeps') as HTMLInputElement).checked,
+        vibrate: ($('optVibrate') as HTMLInputElement).checked,
+      };
+    }
+    ['optVoice', 'optBeeps', 'optVibrate'].forEach((id) =>
+      $(id).addEventListener('change', () => { try { localStorage.setItem(OPTS_KEY, JSON.stringify(opts())); } catch {} }));
+
+    // ---------- Run ----------
+    function start() {
+      unlock();
+      $('startScreen').classList.add('hidden');
+      $('doneScreen').classList.add('hidden');
+      $('runScreen').classList.remove('hidden');
+      engine = new TimerEngine(steps, cuesFor(timer!));
+      engine.on(onEvent);
+      renderRunList();
+      if (opts().voice && timer!.ttsTitle) speak(timer!.ttsTitle);
+      engine.start();
+      keepAwake(true);
+      clearInterval(tickHandle);
+      tickHandle = window.setInterval(frame, 200);
+      frame();
+    }
+
+    function say(step: Step | undefined, text: string) {
+      if (opts().voice && step?.ttsEnabled !== false) speak(text);
+    }
+
+    function stepAnnouncement(step: Step) {
+      const round = step.totalRoundCount && step.totalRoundCount > 1 ? `, round ${step.roundNumber} of ${step.totalRoundCount}` : '';
+      return `${step.name}${round}`;
+    }
+
+    function onEvent(e: any) {
+      const o = opts();
+      switch (e.type) {
+        case 'step':
+          paintStep();
+          if (e.caughtUp) { if (o.beeps) sounds.tick(); break; }
+          if (o.beeps) sounds.go();
+          if (o.vibrate) vibrate(250);
+          say(e.step, stepAnnouncement(e.step));
+          break;
+        case 'cue':
+          if (e.cue === 'countdown') {
+            if (o.beeps) sounds.tick();
+            if (o.vibrate) vibrate(60);
+            if (!o.beeps) say(e.step, String(e.value));
+          } else if (e.cue === 'halfway') {
+            if (o.beeps) sounds.halfway();
+            say(e.step, 'Halfway');
+          } else if (e.cue === 'nextUp') {
+            say(e.next, `Next up: ${e.next.name}`);
+          }
+          break;
+        case 'pause':
+          if (o.voice) speak('Paused');
+          paintPause();
+          break;
+        case 'resume':
+          if (o.voice) speak('Go');
+          paintPause();
+          break;
+        case 'done':
+          finish();
+          break;
+      }
+    }
+
+    function frame() {
+      if (!engine) return;
+      engine.update();
+      const step = engine.current;
+      if (!step) return;
+      const left = engine.msLeft();
+      $('clock').textContent = formatClock(left / 1000);
+      ($('progress') as HTMLElement).style.width = `${100 - (left / (step.duration * 1000)) * 100}%`;
+      $('statElapsed').textContent = formatClock(Math.floor(engine.elapsed()));
+      $('statRemaining').textContent = formatClock(engine.remaining());
+      $('statInterval').textContent = `${engine.index + 1}/${steps.length}`;
+    }
+
+    function paintStep() {
+      if (!engine) return;
+      const step = engine.current!;
+      document.body.style.setProperty('--step', colorFor(step));
+      document.body.dataset.type = step.type;
+      $('stepName').textContent = step.name;
+      $('stepRound').textContent = step.totalRoundCount && step.totalRoundCount > 1
+        ? `${step.blockName ? step.blockName + ' · ' : ''}Round ${step.roundNumber}/${step.totalRoundCount}` : (step.blockName || '');
+      const next = engine.next;
+      $('nextUp').textContent = next ? `Next: ${next.name} · ${formatClock(next.duration)}` : 'Last interval';
+      document.querySelectorAll<HTMLElement>('#runList li').forEach((li, i) => {
+        li.classList.toggle('is-current', i === engine!.index);
+        li.classList.toggle('is-done', i < engine!.index);
+      });
+      const cur = document.querySelector<HTMLElement>('#runList li.is-current');
+      cur?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      paintPause();
+    }
+
+    function paintPause() {
+      const paused = engine?.status === 'paused';
+      $('pauseIcon').classList.toggle('hidden', paused);
+      $('playIcon').classList.toggle('hidden', !paused);
+      $('pauseBtn').setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+      document.body.classList.toggle('is-paused', paused);
+    }
+
+    function renderRunList() {
+      const list = $('runList');
+      list.innerHTML = '';
+      steps.forEach((s, i) => {
+        const li = document.createElement('li');
+        li.style.setProperty('--c', colorFor(s));
+        const name = document.createElement('span');
+        name.className = 'n';
+        name.textContent = s.name + (s.totalRoundCount && s.totalRoundCount > 1 ? ` · ${s.roundNumber}/${s.totalRoundCount}` : '');
+        const d = document.createElement('span');
+        d.className = 'd';
+        d.textContent = formatClock(s.duration);
+        li.append(name, d);
+        li.addEventListener('click', () => { if (!isLocked()) engine?.jumpTo(i); });
+        list.appendChild(li);
+      });
+    }
+
+    function finish() {
+      clearInterval(tickHandle);
+      keepAwake(false);
+      const o = opts();
+      if (o.beeps) sounds.done();
+      if (o.vibrate) vibrate([300, 120, 300, 120, 500]);
+      if (o.voice) speak('Timer complete. Nice work.');
+      $('runScreen').classList.add('hidden');
+      $('doneScreen').classList.remove('hidden');
+      document.body.style.removeProperty('--step');
+      document.body.classList.remove('is-paused');
+      const total = steps.reduce((s, x) => s + x.duration, 0);
+      $('doneSummary').textContent = `${timer!.timerName} · ${formatClock(total)} · ${steps.length} intervals`;
+      setLocked(false);
+    }
+
+    function exit() {
+      if (engine && engine.status !== 'done' && !confirm('Stop this timer?')) return;
+      clearInterval(tickHandle);
+      keepAwake(false);
+      stopSpeaking();
+      leaving = true;
+      location.href = `${base}/timer`;
+    }
+
+    // ---------- Lock: hold for 1 second to unlock ----------
+    let holdTimer: number | undefined;
+    function isLocked() { return !$('lockOverlay').classList.contains('hidden'); }
+    function setLocked(on: boolean) {
+      $('lockOverlay').classList.toggle('hidden', !on);
+      ($('unlockFill') as HTMLElement).style.transition = 'none';
+      ($('unlockFill') as HTMLElement).style.width = '0%';
+    }
+    function holdStart(e: Event) {
+      e.preventDefault();
+      const fill = $('unlockFill') as HTMLElement;
+      fill.style.transition = 'width 1s linear';
+      fill.style.width = '100%';
+      holdTimer = window.setTimeout(() => setLocked(false), 1000);
+    }
+    function holdEnd() {
+      clearTimeout(holdTimer);
+      if (isLocked()) setLocked(true);
+    }
+
+    // ---------- Wire up ----------
+    function showError(msg: string) {
+      $('startError').textContent = msg;
+      $('startError').classList.remove('hidden');
+    }
+
+    $('startBtn').addEventListener('click', start);
+    $('againBtn').addEventListener('click', start);
+    $('pauseBtn').addEventListener('click', () => engine?.toggle());
+    $('skipBtn').addEventListener('click', () => engine?.skip());
+    $('backBtn').addEventListener('click', () => engine?.back());
+    $('exitBtn').addEventListener('click', exit);
+    $('lockBtn').addEventListener('click', () => setLocked(true));
+    const ub = $('unlockBtn');
+    ub.addEventListener('pointerdown', holdStart);
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => ub.addEventListener(ev, holdEnd));
+    ub.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    $('saveSharedBtn').addEventListener('click', () => {
+      if (!sharedTimer) return;
+      const copy = isPreset(sharedTimer.timerId) ? { ...sharedTimer, timerId: 'T' + Date.now().toString(36).toUpperCase() } : sharedTimer;
+      saveTimer(copy);
+      $('saveSharedBtn').textContent = 'Saved ✓';
+      ($('saveSharedBtn') as HTMLButtonElement).disabled = true;
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!engine || isLocked() || $('runScreen').classList.contains('hidden')) return;
+      if (e.code === 'Space') { e.preventDefault(); engine.toggle(); }
+      else if (e.key === 'ArrowRight') engine.skip();
+      else if (e.key === 'ArrowLeft') engine.back();
+    });
+
+    // Catch up instantly when the phone wakes or the tab comes back.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') frame(); });
+    window.addEventListener('pageshow', frame);
+
+    window.addEventListener('beforeunload', (e) => {
+      if (!leaving && engine && engine.status === 'running') { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    load();
+  </script>
+</body>
+</html>
+
+<style is:global>
+  .tp { --step: #2e3440; background: #0f1115; color: #f5f7fa; min-height: 100dvh; margin: 0;
+        font-family: Inter, system-ui, sans-serif; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+  .tp .hidden { display: none !important; }
+  .tp-screen { min-height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); box-sizing: border-box; }
+
+  /* Start + done */
+  .tp-start { justify-content: center; align-items: center; position: relative; }
+  .tp-back { position: absolute; top: calc(env(safe-area-inset-top) + 14px); left: 16px; color: #9aa4b2; font-size: 14px; text-decoration: none; }
+  .tp-start-card { width: 100%; max-width: 420px; text-align: center; padding: 24px 0; }
+  .tp-title { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .tp-meta { color: #9aa4b2; margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+  .tp-notes { color: #cbd2dc; font-size: 15px; line-height: 1.5; margin: 0 0 16px; }
+  .tp-start-list { list-style: none; padding: 0; margin: 0 0 20px; text-align: left; background: #171a21; border-radius: 12px; }
+  .tp-start-list li { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #232833; font-size: 14px; color: #dbe1ea; }
+  .tp-start-list li:last-child { border-bottom: 0; }
+  .tp-dot { width: 10px; height: 10px; border-radius: 99px; flex-shrink: 0; }
+  .tp-toggles { display: flex; justify-content: center; gap: 18px; margin: 0 0 20px; color: #cbd2dc; font-size: 15px; }
+  .tp-toggles label { display: inline-flex; gap: 6px; align-items: center; }
+  .tp-toggles input { width: 18px; height: 18px; accent-color: #f59e0b; }
+  .tp-start-btn { width: 100%; padding: 22px; font-size: 24px; font-weight: 800; letter-spacing: 0.08em; border: 0; border-radius: 16px;
+                  background: #b8f52c; color: #0f1115; cursor: pointer; }
+  .tp-start-btn:disabled { opacity: 0.4; cursor: wait; }
+  .tp-link-btn { display: block; margin: 16px auto 0; background: none; border: 0; color: #f59e0b; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer; }
+  .tp-error { color: #ff6b6b; margin-top: 14px; }
+  .tp-done-mark { font-size: 56px; color: #b8f52c; }
+
+  /* Running */
+  .tp-run { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; padding-left: 0; padding-right: 0; background: #161a20; background: color-mix(in srgb, var(--step) 22%, #0f1115); transition: background 0.4s; }
+  .tp.is-paused .tp-run { background: #1b1e25; }
+  .tp-top { flex-shrink: 0; padding: 18px 16px 10px; text-align: center; }
+  .tp-round { min-height: 20px; color: color-mix(in srgb, var(--step) 70%, white); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .tp-step-name { font-size: clamp(26px, 7vw, 44px); font-weight: 800; letter-spacing: -0.01em; line-height: 1.1; margin-top: 4px; }
+  .tp-clock { font-size: clamp(96px, 30vw, 220px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.04em; margin: 8px 0 12px; color: var(--step); }
+  .tp.is-paused .tp-clock { color: #9aa4b2; animation: tp-blink 1.2s steps(2) infinite; }
+  @keyframes tp-blink { 50% { opacity: 0.35; } }
+  .tp-progress { height: 8px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden; margin: 0 auto; max-width: 520px; }
+  .tp-progress-bar { height: 100%; width: 0; background: var(--step); border-radius: 99px; }
+  .tp-next { margin-top: 12px; color: #cbd2dc; font-size: 16px; min-height: 22px; }
+  .tp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 520px; margin: 14px auto 0; }
+  .tp-stats div { background: rgba(0,0,0,0.28); border-radius: 10px; padding: 8px 4px; }
+  .tp-stats span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #9aa4b2; }
+  .tp-stats strong { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+
+  .tp-run-list { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; list-style: none; margin: 8px 0 0; padding: 4px 16px 16px; }
+  .tp-run-list li { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; margin-bottom: 6px; border-radius: 10px;
+                    background: rgba(255,255,255,0.05); border-left: 6px solid var(--c); cursor: pointer; font-size: 15px; }
+  .tp-run-list li.is-done { opacity: 0.35; }
+  .tp-run-list li.is-current { background: rgba(255,255,255,0.16); font-weight: 700; }
+  .tp-run-list .d { font-variant-numeric: tabular-nums; color: #cbd2dc; }
+
+  .tp-controls { flex-shrink: 0; display: flex; justify-content: space-around; align-items: center; padding: 10px 8px calc(env(safe-area-inset-bottom) + 12px);
+                 background: rgba(0,0,0,0.45); }
+  .tp-ctl { width: 56px; height: 56px; border-radius: 99px; border: 0; background: rgba(255,255,255,0.1); color: #f5f7fa;
+            display: grid; place-items: center; cursor: pointer; }
+  .tp-ctl:active { transform: scale(0.94); }
+  .tp-ctl-main { width: 76px; height: 76px; background: var(--step); color: #0f1115; }
+
+  .tp-lock { position: fixed; inset: 0; background: rgba(0,0,0,0.25); display: flex; align-items: flex-end; justify-content: center;
+             padding-bottom: calc(env(safe-area-inset-bottom) + 24px); z-index: 20; }
+  .tp-unlock { position: relative; overflow: hidden; border: 0; border-radius: 99px; padding: 18px 34px; background: rgba(20,22,28,0.92);
+               color: #f5f7fa; font-size: 17px; font-weight: 700; touch-action: none; cursor: pointer; }
+  .tp-unlock-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: rgba(245,158,11,0.55); }
+  .tp-unlock-label { position: relative; }
+
+  @media (prefers-reduced-motion: reduce) { .tp-run, .tp.is-paused .tp-clock { transition: none; animation: none; } }
+</style>

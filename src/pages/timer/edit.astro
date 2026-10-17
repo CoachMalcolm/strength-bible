@@ -1,0 +1,409 @@
+---
+/**
+ * Timer builder.
+ *   /timer/edit            new timer
+ *   /timer/edit?id=X       edit a saved timer
+ *   /timer/edit?from=X     start a new timer from a preset or saved timer
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+<BaseLayout title="Timer Builder">
+  <div id="builder" data-base={base} class="max-w-3xl pb-28">
+    <a href={`${base}/timer`} class="text-sm text-slate-500 hover:text-amber-600">&larr; Timers</a>
+    <h1 id="builderHeading" class="text-3xl font-bold mt-4 mb-6">New timer</h1>
+
+    <div class="space-y-4 mb-8">
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Name</span>
+        <input id="tName" type="text" maxlength="80" placeholder="e.g. Monday conditioning" class="tb-input mt-1" />
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Notes <span class="font-normal text-slate-500">(shown before you start)</span></span>
+        <textarea id="tNotes" rows="2" maxlength="400" class="tb-input mt-1" placeholder="Optional instructions"></textarea>
+      </label>
+    </div>
+
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">Intervals</h2>
+    <ol id="blockList" class="space-y-2 mb-4"></ol>
+    <div class="flex flex-wrap gap-2 mb-10">
+      <button type="button" id="addInterval" class="tb-btn">+ Interval</button>
+      <button type="button" id="addCircuit" class="tb-btn">+ Circuit (rounds)</button>
+    </div>
+
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">Cues</h2>
+    <div class="bg-white border border-slate-200 rounded-lg p-4 space-y-3 mb-8">
+      <label class="tb-check"><input type="checkbox" id="cCountdown" /> <span>3‑2‑1 countdown at the end of each interval</span></label>
+      <label class="tb-check"><input type="checkbox" id="cNextUp" /> <span>“Next up” announcement before each interval ends</span></label>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Spoken at the start <span class="font-normal text-slate-500">(optional)</span></span>
+        <input id="tTitle" type="text" maxlength="120" class="tb-input mt-1" placeholder="e.g. Let's go. Four rounds, full effort." />
+      </label>
+      <p class="text-xs text-slate-500">Voice, beeps and vibration can each be switched on or off on the start screen.</p>
+    </div>
+  </div>
+
+  <!-- Sticky footer -->
+  <div class="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-slate-200">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+      <div class="text-sm text-slate-600 min-w-0">Total <strong id="totalTime" class="text-slate-900 tabular-nums">0:00</strong> · <span id="totalCount">0</span> intervals</div>
+      <button type="button" id="saveRun" class="ml-auto tb-btn whitespace-nowrap">Save &amp; start</button>
+      <button type="button" id="save" class="tb-btn-primary">Save</button>
+    </div>
+  </div>
+
+  <!-- Interval dialog -->
+  <dialog id="ivDialog" class="tb-dialog">
+    <form method="dialog" id="ivForm" class="space-y-4">
+      <h3 id="ivHeading" class="text-xl font-bold">Interval</h3>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Name</span>
+        <input id="ivName" type="text" maxlength="60" class="tb-input mt-1" placeholder="e.g. Sprint, Plank, Rest" required />
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block">
+          <span class="text-sm font-semibold text-slate-700">Type</span>
+          <select id="ivType" class="tb-input mt-1"></select>
+        </label>
+        <label class="block">
+          <span class="text-sm font-semibold text-slate-700">Duration</span>
+          <input id="ivDuration" type="text" inputmode="numeric" class="tb-input mt-1 tabular-nums" placeholder="0:30" />
+        </label>
+      </div>
+      <div id="ivQuick" class="flex flex-wrap gap-1.5"></div>
+      <div>
+        <span class="text-sm font-semibold text-slate-700">Color</span>
+        <div id="ivColors" class="flex flex-wrap gap-2 mt-2"></div>
+      </div>
+      <label class="tb-check"><input type="checkbox" id="ivVoice" /> <span>Voice cues for this interval</span></label>
+      <label class="tb-check"><input type="checkbox" id="ivHalfway" /> <span>Announce “halfway”</span></label>
+      <p id="ivError" class="text-sm text-red-700 hidden"></p>
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" class="tb-btn" data-close>Cancel</button>
+        <button type="submit" class="tb-btn-primary">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Circuit dialog -->
+  <dialog id="cDialog" class="tb-dialog">
+    <form method="dialog" id="cForm" class="space-y-4">
+      <h3 class="text-xl font-bold">Circuit</h3>
+      <div class="grid grid-cols-3 gap-3">
+        <label class="block col-span-2">
+          <span class="text-sm font-semibold text-slate-700">Name</span>
+          <input id="cName" type="text" maxlength="60" class="tb-input mt-1" placeholder="e.g. Tabata" />
+        </label>
+        <label class="block">
+          <span class="text-sm font-semibold text-slate-700">Rounds</span>
+          <input id="cRounds" type="number" min="1" max="99" inputmode="numeric" class="tb-input mt-1" />
+        </label>
+      </div>
+      <div>
+        <span class="text-sm font-semibold text-slate-700">Each round</span>
+        <ol id="cInner" class="space-y-2 mt-2"></ol>
+        <button type="button" id="cAddInner" class="tb-btn mt-2">+ Add to round</button>
+      </div>
+      <div class="grid grid-cols-2 gap-3 items-end">
+        <label class="block">
+          <span class="text-sm font-semibold text-slate-700">Rest between rounds</span>
+          <input id="cAfterEach" type="text" inputmode="numeric" class="tb-input mt-1" placeholder="none" />
+        </label>
+        <label class="block">
+          <span class="text-sm font-semibold text-slate-700">Rest after circuit</span>
+          <input id="cAfterAll" type="text" inputmode="numeric" class="tb-input mt-1" placeholder="none" />
+        </label>
+      </div>
+      <label class="tb-check"><input type="checkbox" id="cVoice" /> <span>Voice cues in this circuit</span></label>
+      <p id="cSummary" class="text-sm text-slate-600"></p>
+      <p id="cError" class="text-sm text-red-700 hidden"></p>
+      <div class="flex gap-2 justify-end pt-2">
+        <button type="button" class="tb-btn" data-close>Cancel</button>
+        <button type="submit" class="tb-btn-primary">Done</button>
+      </div>
+    </form>
+  </dialog>
+</BaseLayout>
+
+<style is:global>
+  .tb-input { @apply w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-slate-900 focus:border-amber-500 focus:outline-none; }
+  .tb-btn { @apply px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-800 hover:border-slate-500; }
+  .tb-btn-primary { @apply px-4 py-2 rounded-lg bg-slate-900 text-sm font-semibold text-white hover:bg-slate-700; }
+  .tb-icon { @apply w-9 h-9 grid place-items-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent; }
+  .tb-check { @apply flex items-start gap-2 text-sm text-slate-700; }
+  .tb-check input { @apply mt-0.5 w-4 h-4 accent-amber-500; }
+  .tb-dialog { @apply w-[min(560px,calc(100vw-24px))] max-h-[calc(100dvh-24px)] overflow-y-auto rounded-xl border border-slate-200 p-5 shadow-2xl; }
+  .tb-dialog::backdrop { background: rgba(15, 17, 21, 0.55); }
+  .tb-swatch { @apply w-8 h-8 rounded-full border-2 border-white ring-1 ring-slate-300; }
+  .tb-swatch[aria-pressed="true"] { @apply ring-2 ring-slate-900; }
+  .tb-chip { @apply px-2.5 py-1 rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:border-slate-500 tabular-nums; }
+</style>
+
+<script>
+  import {
+    INTERVAL_TYPES, SWATCHES, DEFAULT_CUES, blankTimer, colorFor, expand, formatClock, parseDuration,
+    blockSeconds, newId, type Timer, type Block, type Interval, type Circuit, type IntervalType,
+  } from '../../lib/timer/model';
+  import { getTimer, saveTimer, isPreset } from '../../lib/timer/store';
+
+  const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+  const base = $('builder').dataset.base || '';
+
+  // ---------- Load ----------
+  const params = new URLSearchParams(location.search);
+  let timer: Timer;
+  const editId = params.get('id');
+  const fromId = params.get('from');
+  if (editId && getTimer(editId) && !isPreset(editId)) {
+    timer = structuredClone(getTimer(editId)!);
+    $('builderHeading').textContent = 'Edit timer';
+  } else if (fromId && getTimer(fromId)) {
+    const src = structuredClone(getTimer(fromId)!);
+    timer = { ...src, timerId: newId(), timerName: isPreset(fromId) ? src.timerName : `${src.timerName} (copy)` };
+  } else {
+    timer = blankTimer();
+  }
+  timer.ttsCues = { ...DEFAULT_CUES, ...(timer.ttsCues || {}) };
+  let dirty = false;
+  const markDirty = () => { dirty = true; renderTotals(); };
+
+  ($('tName') as HTMLInputElement).value = timer.timerName;
+  ($('tNotes') as HTMLTextAreaElement).value = timer.notes || '';
+  ($('tTitle') as HTMLInputElement).value = timer.ttsTitle || '';
+  ($('cCountdown') as HTMLInputElement).checked = timer.ttsCues.countdown3s !== false;
+  ($('cNextUp') as HTMLInputElement).checked = timer.ttsCues.nextUp !== false;
+  ['tName', 'tNotes', 'tTitle', 'cCountdown', 'cNextUp'].forEach((id) => $(id).addEventListener('input', markDirty));
+
+  // ---------- Small DOM helpers ----------
+  function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  }
+  const ICONS: Record<string, string> = {
+    up: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+    down: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    del: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  };
+  function iconBtn(kind: string, label: string, onClick: () => void, disabled = false) {
+    const b = el('button', 'tb-icon');
+    b.type = 'button';
+    b.innerHTML = ICONS[kind];
+    b.setAttribute('aria-label', label);
+    b.title = label;
+    b.disabled = disabled;
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+    return b;
+  }
+  function move<T>(arr: T[], i: number, d: number) {
+    const j = i + d;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  /** A row in a list of intervals/blocks, with reorder/copy/delete. */
+  function row(block: Block, i: number, arr: Block[] | Interval[], onEdit: () => void, rerender: () => void) {
+    const li = el('li', 'flex items-center gap-2 bg-white border border-slate-200 rounded-lg pl-0 pr-1 overflow-hidden');
+    const stripe = el('span', 'self-stretch w-1.5 shrink-0');
+    stripe.style.background = colorFor(block);
+    const main = el('button', 'flex-1 min-w-0 text-left py-2.5 pl-2');
+    main.type = 'button';
+    const title = el('div', 'font-semibold text-slate-900 truncate', block.name || '(unnamed)');
+    const sub = el('div', 'text-xs text-slate-500 truncate');
+    if (block.type === 'circuit') {
+      const c = block as Circuit;
+      const inner = (c.intervals || []).map((x) => `${x.name} ${formatClock(x.duration)}`).join(' / ') || 'empty';
+      sub.textContent = `${c.rounds} rounds · ${inner} · ${formatClock(blockSeconds(c))} total`;
+    } else {
+      const t = INTERVAL_TYPES.find((x) => x.value === block.type)?.label || block.type;
+      sub.textContent = `${formatClock((block as Interval).duration)} · ${t}`;
+    }
+    main.append(title, sub);
+    main.addEventListener('click', onEdit);
+    const tools = el('div', 'flex shrink-0');
+    tools.append(
+      iconBtn('up', 'Move up', () => { move(arr as any[], i, -1); rerender(); }, i === 0),
+      iconBtn('down', 'Move down', () => { move(arr as any[], i, 1); rerender(); }, i === arr.length - 1),
+      iconBtn('copy', 'Duplicate', () => { (arr as any[]).splice(i + 1, 0, structuredClone(block)); rerender(); }),
+      iconBtn('del', 'Delete', () => { (arr as any[]).splice(i, 1); rerender(); }),
+    );
+    li.append(stripe, main, tools);
+    return li;
+  }
+
+  // ---------- Main list ----------
+  function renderBlocks() {
+    const list = $('blockList');
+    list.innerHTML = '';
+    if (!timer.structure.length) {
+      list.appendChild(el('li', 'p-4 text-sm text-slate-500 bg-white border border-dashed border-slate-300 rounded-lg', 'No intervals yet. Add one below.'));
+    }
+    timer.structure.forEach((b, i) => {
+      list.appendChild(row(b, i, timer.structure, () => (b.type === 'circuit' ? openCircuit(i) : openInterval(b as Interval, (iv) => { timer.structure[i] = iv; markDirty(); renderBlocks(); })), () => { markDirty(); renderBlocks(); }));
+    });
+    renderTotals();
+  }
+
+  function renderTotals() {
+    const steps = expand(timer.structure);
+    $('totalTime').textContent = formatClock(steps.reduce((s, x) => s + x.duration, 0));
+    $('totalCount').textContent = String(steps.length);
+  }
+
+  // ---------- Interval dialog ----------
+  const ivDialog = $('ivDialog') as HTMLDialogElement;
+  let ivDone: ((iv: Interval) => void) | null = null;
+  let ivColor = '';
+
+  const typeSel = $('ivType') as HTMLSelectElement;
+  INTERVAL_TYPES.forEach((t) => { const o = el('option', '', t.label); o.value = t.value; typeSel.appendChild(o); });
+  [10, 15, 20, 30, 45, 60, 90, 120, 180, 300].forEach((s) => {
+    const c = el('button', 'tb-chip', formatClock(s));
+    c.type = 'button';
+    c.addEventListener('click', () => { ($('ivDuration') as HTMLInputElement).value = formatClock(s); });
+    $('ivQuick').appendChild(c);
+  });
+  function paintSwatches() {
+    const wrap = $('ivColors');
+    wrap.innerHTML = '';
+    const auto = el('button', 'tb-chip', 'Auto');
+    auto.type = 'button';
+    auto.setAttribute('aria-pressed', String(!ivColor));
+    auto.addEventListener('click', () => { ivColor = ''; paintSwatches(); });
+    wrap.appendChild(auto);
+    SWATCHES.forEach((c) => {
+      const s = el('button', 'tb-swatch');
+      s.type = 'button';
+      s.style.background = c;
+      s.setAttribute('aria-label', `Color ${c}`);
+      s.setAttribute('aria-pressed', String(ivColor === c));
+      s.addEventListener('click', () => { ivColor = c; paintSwatches(); });
+      wrap.appendChild(s);
+    });
+  }
+
+  function openInterval(iv: Interval | null, done: (iv: Interval) => void, defaults: Partial<Interval> = {}) {
+    const v = iv || { type: 'work', name: '', duration: 30, ...defaults } as Interval;
+    ivDone = done;
+    $('ivHeading').textContent = iv ? 'Edit interval' : 'New interval';
+    ($('ivName') as HTMLInputElement).value = v.name || '';
+    typeSel.value = v.type || 'work';
+    ($('ivDuration') as HTMLInputElement).value = v.duration ? formatClock(v.duration) : '';
+    ($('ivVoice') as HTMLInputElement).checked = v.ttsEnabled !== false;
+    ($('ivHalfway') as HTMLInputElement).checked = v.halfwayEnabled !== false;
+    ivColor = v.color || '';
+    paintSwatches();
+    $('ivError').classList.add('hidden');
+    ivDialog.showModal();
+    ($('ivName') as HTMLInputElement).focus();
+  }
+
+  $('ivForm').addEventListener('submit', (e) => {
+    const name = ($('ivName') as HTMLInputElement).value.trim();
+    const duration = parseDuration(($('ivDuration') as HTMLInputElement).value);
+    const err = !name ? 'Give it a name.' : !duration ? 'Set a duration, like 0:30 or 90.' : duration > 6 * 3600 ? 'That’s longer than 6 hours.' : '';
+    if (err) { e.preventDefault(); $('ivError').textContent = err; $('ivError').classList.remove('hidden'); return; }
+    const out: Interval = { type: typeSel.value as IntervalType, name, duration };
+    if (ivColor) out.color = ivColor;
+    if (!($('ivVoice') as HTMLInputElement).checked) out.ttsEnabled = false;
+    if (!($('ivHalfway') as HTMLInputElement).checked) out.halfwayEnabled = false;
+    ivDone?.(out);
+    ivDone = null;
+  });
+
+  // ---------- Circuit dialog ----------
+  const cDialog = $('cDialog') as HTMLDialogElement;
+  let draft: Circuit | null = null;
+  let draftIndex = -1;
+
+  function openCircuit(index: number) {
+    draftIndex = index;
+    draft = index >= 0
+      ? structuredClone(timer.structure[index] as Circuit)
+      : { type: 'circuit', name: '', rounds: 4, intervals: [
+          { type: 'work', name: 'Work', duration: 30 },
+          { type: 'rest', name: 'Rest', duration: 15, halfwayEnabled: false },
+        ] };
+    ($('cName') as HTMLInputElement).value = draft.name || '';
+    ($('cRounds') as HTMLInputElement).value = String(draft.rounds || 1);
+    ($('cAfterEach') as HTMLInputElement).value = draft.afterEach?.duration ? formatClock(draft.afterEach.duration) : '';
+    ($('cAfterAll') as HTMLInputElement).value = draft.afterCircuit?.duration ? formatClock(draft.afterCircuit.duration) : '';
+    ($('cVoice') as HTMLInputElement).checked = draft.ttsEnabled !== false;
+    $('cError').classList.add('hidden');
+    renderInner();
+    cDialog.showModal();
+  }
+
+  function readCircuit(): Circuit {
+    const c = draft!;
+    c.name = ($('cName') as HTMLInputElement).value.trim();
+    c.rounds = Math.min(99, Math.max(1, parseInt(($('cRounds') as HTMLInputElement).value, 10) || 1));
+    const each = parseDuration(($('cAfterEach') as HTMLInputElement).value);
+    const all = parseDuration(($('cAfterAll') as HTMLInputElement).value);
+    if (each) c.afterEach = { ...(c.afterEach || { type: 'rest', name: 'Round rest', color: '#ff3b30' }), duration: each } as Interval;
+    else delete c.afterEach;
+    if (all) c.afterCircuit = { ...(c.afterCircuit || { type: 'rest', name: 'Block rest', color: '#ff3b30' }), duration: all } as Interval;
+    else delete c.afterCircuit;
+    if (($('cVoice') as HTMLInputElement).checked) delete c.ttsEnabled; else c.ttsEnabled = false;
+    return c;
+  }
+
+  function renderInner() {
+    const list = $('cInner');
+    list.innerHTML = '';
+    draft!.intervals.forEach((iv, i) => {
+      list.appendChild(row(iv, i, draft!.intervals, () => openInterval(iv, (out) => { draft!.intervals[i] = out; renderInner(); }), renderInner));
+    });
+    const c = readCircuit();
+    $('cSummary').textContent = c.intervals.length ? `${c.rounds} × (${c.intervals.map((x) => x.name).join(' + ')}) = ${formatClock(blockSeconds(c))}` : '';
+  }
+  ['cName', 'cRounds', 'cAfterEach', 'cAfterAll'].forEach((id) => $(id).addEventListener('input', () => { if (draft) renderInner(); }));
+  $('cAddInner').addEventListener('click', () => openInterval(null, (out) => { draft!.intervals.push(out); renderInner(); }));
+
+  $('cForm').addEventListener('submit', (e) => {
+    const c = readCircuit();
+    const err = !c.intervals.length ? 'Add at least one interval to the round.' : '';
+    if (err) { e.preventDefault(); $('cError').textContent = err; $('cError').classList.remove('hidden'); return; }
+    if (!c.name) c.name = 'Circuit';
+    if (draftIndex >= 0) timer.structure[draftIndex] = c; else timer.structure.push(c);
+    draft = null;
+    markDirty();
+    renderBlocks();
+  });
+
+  document.querySelectorAll('dialog [data-close]').forEach((b) =>
+    b.addEventListener('click', () => (b.closest('dialog') as HTMLDialogElement).close()));
+
+  // ---------- Add buttons ----------
+  $('addInterval').addEventListener('click', () => {
+    const last = timer.structure[timer.structure.length - 1];
+    const defaults: Partial<Interval> = last && last.type === 'work' ? { type: 'rest', name: 'Rest', duration: 30 } : {};
+    openInterval(null, (iv) => { timer.structure.push(iv); markDirty(); renderBlocks(); }, defaults);
+  });
+  $('addCircuit').addEventListener('click', () => openCircuit(-1));
+
+  // ---------- Save ----------
+  function collect(): string {
+    timer.timerName = ($('tName') as HTMLInputElement).value.trim();
+    timer.notes = ($('tNotes') as HTMLTextAreaElement).value.trim() || undefined;
+    timer.ttsTitle = ($('tTitle') as HTMLInputElement).value.trim() || undefined;
+    timer.ttsCues = { ...timer.ttsCues, countdown3s: ($('cCountdown') as HTMLInputElement).checked, nextUp: ($('cNextUp') as HTMLInputElement).checked };
+    if (!timer.timerName) return 'Give the timer a name.';
+    if (!expand(timer.structure).length) return 'Add at least one interval.';
+    return '';
+  }
+  function doSave(): boolean {
+    const err = collect();
+    if (err) { alert(err); if (!timer.timerName) $('tName').focus(); return false; }
+    saveTimer(timer);
+    dirty = false;
+    return true;
+  }
+  $('save').addEventListener('click', () => { if (doSave()) location.href = `${base}/timer`; });
+  $('saveRun').addEventListener('click', () => { if (doSave()) location.href = `${base}/timer/run?id=${encodeURIComponent(timer.timerId)}`; });
+  window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  renderBlocks();
+</script>

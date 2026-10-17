@@ -18,11 +18,20 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - name: Install
         run: npm ci
+      - name: Timer engine tests
+        run: node --experimental-strip-types --no-warnings scripts/test-timer.ts
       - name: Build
         run: npm run build
       - name: Verify built pages
         run: node scripts/verify-build.mjs
+      - name: Browser smoke test
+        run: |
+          npm install --no-save playwright@1.49.1
+          npx playwright install --with-deps chromium
+          npx astro preview --port 4321 > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4321/strength-bible/ > /dev/null && break; sleep 1; done
+          node scripts/smoke-test.mjs
