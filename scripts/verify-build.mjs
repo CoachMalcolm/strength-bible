@@ -15,7 +15,10 @@ function count(html, re) {
   return (html.match(re) || []).length;
 }
 function check(label, ok, detail = '') {
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? '  — ' + detail : ''}`);
+  const line = `${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? '  — ' + detail : ''}`;
+  console.log(line);
+  // On GitHub, also surface each result as an annotation on the run.
+  if (process.env.GITHUB_ACTIONS) console.log(`::${ok ? 'notice' : 'error'}::${line.replace(/\n/g, ' ')}`);
   if (!ok) failures++;
 }
 function allPages(dir = DIST) {
