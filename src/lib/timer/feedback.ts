@@ -26,6 +26,40 @@ export function unlock() {
   try { if ('speechSynthesis' in window) window.speechSynthesis.getVoices(); } catch {}
 }
 
+/**
+ * Ask the phone to lower (duck) other audio like Spotify while our cues play,
+ * instead of pausing it. Only some browsers support this (newer Safari);
+ * elsewhere the phone decides on its own.
+ */
+export function preferDucking() {
+  try {
+    const session = (navigator as any).audioSession;
+    if (session && 'type' in session) session.type = 'transient';
+  } catch {}
+}
+
+export function supportsDucking(): boolean {
+  return typeof navigator !== 'undefined' && !!(navigator as any).audioSession;
+}
+
+/** True when sound can play right now (phones block it until the page is tapped). */
+export function audioReady(): boolean {
+  return !!ctx && ctx.state === 'running';
+}
+
+/** After moving to a new page, sound comes back on the next tap anywhere. */
+export function unlockOnFirstTouch(onUnlocked?: () => void) {
+  const handler = () => {
+    unlock();
+    preferDucking();
+    setTimeout(() => onUnlocked?.(), 50);
+    window.removeEventListener('pointerdown', handler, true);
+    window.removeEventListener('keydown', handler, true);
+  };
+  window.addEventListener('pointerdown', handler, true);
+  window.addEventListener('keydown', handler, true);
+}
+
 /** freq in Hz, ms length. */
 export function beep(freq = 880, ms = 140, volume = 0.35) {
   if (!ctx) return;

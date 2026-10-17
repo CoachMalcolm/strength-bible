@@ -37,6 +37,22 @@ const base = import.meta.env.BASE_URL;
 
   <!-- RUNNING -->
   <section id="runScreen" class="tp-screen tp-run hidden" aria-live="off">
+    <div class="tp-topbar">
+      <button id="exitBtn" class="tp-chip-btn" aria-label="Stop timer">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        <span>Stop</span>
+      </button>
+      <div class="tp-topbar-right">
+        <button id="pipBtn" class="tp-chip-btn hidden" aria-label="Pop out over other apps">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg>
+          <span>Pop out</span>
+        </button>
+        <button id="miniBtn" class="tp-chip-btn" aria-label="Shrink to mini timer">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
+          <span>Mini</span>
+        </button>
+      </div>
+    </div>
     <div class="tp-top">
       <div id="stepRound" class="tp-round"></div>
       <div id="stepName" class="tp-step-name"></div>
@@ -53,9 +69,6 @@ const base = import.meta.env.BASE_URL;
     <ol id="runList" class="tp-run-list"></ol>
 
     <nav class="tp-controls" aria-label="Timer controls">
-      <button id="exitBtn" class="tp-ctl" aria-label="Exit">
-        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
       <button id="backBtn" class="tp-ctl" aria-label="Previous interval">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
       </button>
@@ -91,21 +104,34 @@ const base = import.meta.env.BASE_URL;
   </section>
 
   <script>
-    import { expand, formatClock, colorFor, cuesFor, type Timer, type Step } from '../../lib/timer/model';
+    import { expand, formatClock, colorFor, newId, type Timer, type Step } from '../../lib/timer/model';
     import { getTimer, decodeShare, saveTimer, isPreset } from '../../lib/timer/store';
-    import { TimerEngine } from '../../lib/timer/engine';
-    import { unlock, sounds, speak, stopSpeaking, vibrate, keepAwake } from '../../lib/timer/feedback';
+    import { Runner, readSession, readOptions, writeOptions } from '../../lib/timer/runner';
+    import { unlock, audioReady, unlockOnFirstTouch } from '../../lib/timer/feedback';
+    import { TimerPip, pipSupported } from '../../lib/timer/pip';
 
     const $ = (id: string) => document.getElementById(id) as HTMLElement;
     const base = document.body.dataset.base || '';
-    const OPTS_KEY = 'bible:timer-options';
 
     let timer: Timer | null = null;
     let steps: Step[] = [];
-    let engine: TimerEngine | null = null;
-    let tickHandle: number | undefined;
+    let runner: Runner | null = null;
+    let pip: TimerPip | null = null;
     let sharedTimer: Timer | null = null;
     let leaving = false;
+
+    // Where "Mini" sends you: the page you came from on this site, else the timer list.
+    function returnTarget(): string | null {
+      try {
+        const ref = new URL(document.referrer);
+        if (ref.origin === location.origin && ref.pathname.startsWith(base) && !ref.pathname.includes('/timer/run')) {
+          return ref.pathname + ref.search + ref.hash;
+        }
+      } catch {}
+      return null;
+    }
+    const cameFrom = returnTarget();
+    const fallback = `${base}/timer`;
 
     // ---------- Load ----------
     function load() {
@@ -113,6 +139,13 @@ const base = import.meta.env.BASE_URL;
       const hash = new URLSearchParams(location.hash.slice(1));
       const code = hash.get('t');
       const id = params.get('id');
+      const session = readSession();
+
+      // Coming back from the mini timer (or reopening the player mid-workout).
+      if (session && (params.get('resume') === '1' || (!code && (!id || id === session.timer.timerId)))) {
+        resumeRunning();
+        return;
+      }
 
       if (code) {
         sharedTimer = decodeShare(code);
@@ -141,7 +174,6 @@ const base = import.meta.env.BASE_URL;
     }
 
     function renderStartList() {
-      // A compact preview: group repeated circuits as "× rounds".
       const list = $('startList');
       list.innerHTML = '';
       for (const block of timer!.structure as any[]) {
@@ -162,91 +194,73 @@ const base = import.meta.env.BASE_URL;
       }
     }
 
-    // ---------- Options (voice / beeps / vibrate), remembered per device ----------
+    // ---------- Alert options (remembered per device) ----------
     function loadOptions() {
-      const cues = cuesFor(timer!);
-      let saved: any = {};
-      try { saved = JSON.parse(localStorage.getItem(OPTS_KEY) || '{}'); } catch {}
-      ($('optVoice') as HTMLInputElement).checked = saved.voice ?? cues.voice;
-      ($('optBeeps') as HTMLInputElement).checked = saved.beeps ?? cues.beeps;
-      ($('optVibrate') as HTMLInputElement).checked = saved.vibrate ?? cues.vibrate;
+      const o = readOptions(timer!);
+      ($('optVoice') as HTMLInputElement).checked = o.voice;
+      ($('optBeeps') as HTMLInputElement).checked = o.beeps;
+      ($('optVibrate') as HTMLInputElement).checked = o.vibrate;
       if (!('vibrate' in navigator)) ($('optVibrate').parentElement as HTMLElement).classList.add('hidden');
     }
-    function opts() {
-      return {
+    ['optVoice', 'optBeeps', 'optVibrate'].forEach((id) =>
+      $(id).addEventListener('change', () => writeOptions({
         voice: ($('optVoice') as HTMLInputElement).checked,
         beeps: ($('optBeeps') as HTMLInputElement).checked,
         vibrate: ($('optVibrate') as HTMLInputElement).checked,
-      };
-    }
-    ['optVoice', 'optBeeps', 'optVibrate'].forEach((id) =>
-      $(id).addEventListener('change', () => { try { localStorage.setItem(OPTS_KEY, JSON.stringify(opts())); } catch {} }));
+      })));
 
     // ---------- Run ----------
-    function start() {
-      unlock();
+    function showRun() {
       $('startScreen').classList.add('hidden');
       $('doneScreen').classList.add('hidden');
       $('runScreen').classList.remove('hidden');
-      engine = new TimerEngine(steps, cuesFor(timer!));
-      engine.on(onEvent);
+      if (pipSupported()) $('pipBtn').classList.remove('hidden');
+    }
+
+    function attach(r: Runner) {
+      runner = r;
+      timer = r.timer;
+      steps = r.steps;
+      document.title = `${timer.timerName} — Timer`;
       renderRunList();
-      if (opts().voice && timer!.ttsTitle) speak(timer!.ttsTitle);
-      engine.start();
-      keepAwake(true);
-      clearInterval(tickHandle);
-      tickHandle = window.setInterval(frame, 200);
+      let lastIndex = -1;
+      r.on((_, e) => {
+        if (r.engine.index !== lastIndex || e?.type === 'step') { lastIndex = r.engine.index; paintStep(); }
+        if (e?.type === 'pause' || e?.type === 'resume') paintPause();
+        if (e?.type === 'done') finish();
+        frame();
+      });
+      paintStep();
       frame();
     }
 
-    function say(step: Step | undefined, text: string) {
-      if (opts().voice && step?.ttsEnabled !== false) speak(text);
+    function start() {
+      unlock();
+      pip?.close();
+      pip = null;
+      showRun();
+      const r = new Runner(timer!);
+      r.setMode('full', { returnTo: cameFrom || fallback });
+      attach(r);
+      r.start();
     }
 
-    function stepAnnouncement(step: Step) {
-      const round = step.totalRoundCount && step.totalRoundCount > 1 ? `, round ${step.roundNumber} of ${step.totalRoundCount}` : '';
-      return `${step.name}${round}`;
-    }
-
-    function onEvent(e: any) {
-      const o = opts();
-      switch (e.type) {
-        case 'step':
-          paintStep();
-          if (e.caughtUp) { if (o.beeps) sounds.tick(); break; }
-          if (o.beeps) sounds.go();
-          if (o.vibrate) vibrate(250);
-          say(e.step, stepAnnouncement(e.step));
-          break;
-        case 'cue':
-          if (e.cue === 'countdown') {
-            if (o.beeps) sounds.tick();
-            if (o.vibrate) vibrate(60);
-            if (!o.beeps) say(e.step, String(e.value));
-          } else if (e.cue === 'halfway') {
-            if (o.beeps) sounds.halfway();
-            say(e.step, 'Halfway');
-          } else if (e.cue === 'nextUp') {
-            say(e.next, `Next up: ${e.next.name}`);
-          }
-          break;
-        case 'pause':
-          if (o.voice) speak('Paused');
-          paintPause();
-          break;
-        case 'resume':
-          if (o.voice) speak('Go');
-          paintPause();
-          break;
-        case 'done':
-          finish();
-          break;
+    function resumeRunning() {
+      const r = Runner.resume();
+      if (!r) { location.replace(`${base}/timer`); return; }
+      showRun();
+      r.setMode('full', cameFrom ? { returnTo: cameFrom } : {});
+      attach(r);
+      if (r.engine.status === 'done') { finish(); return; }
+      if (!audioReady()) {
+        $('stepRound').textContent = 'Tap anywhere for sound';
+        unlockOnFirstTouch(() => paintStep());
       }
     }
 
     function frame() {
-      if (!engine) return;
-      engine.update();
+      if (!runner) return;
+      const { engine } = runner;
       const step = engine.current;
       if (!step) return;
       const left = engine.msLeft();
@@ -258,7 +272,8 @@ const base = import.meta.env.BASE_URL;
     }
 
     function paintStep() {
-      if (!engine) return;
+      if (!runner) return;
+      const { engine } = runner;
       const step = engine.current!;
       document.body.style.setProperty('--step', colorFor(step));
       document.body.dataset.type = step.type;
@@ -268,16 +283,15 @@ const base = import.meta.env.BASE_URL;
       const next = engine.next;
       $('nextUp').textContent = next ? `Next: ${next.name} · ${formatClock(next.duration)}` : 'Last interval';
       document.querySelectorAll<HTMLElement>('#runList li').forEach((li, i) => {
-        li.classList.toggle('is-current', i === engine!.index);
-        li.classList.toggle('is-done', i < engine!.index);
+        li.classList.toggle('is-current', i === engine.index);
+        li.classList.toggle('is-done', i < engine.index);
       });
-      const cur = document.querySelector<HTMLElement>('#runList li.is-current');
-      cur?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      document.querySelector<HTMLElement>('#runList li.is-current')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       paintPause();
     }
 
     function paintPause() {
-      const paused = engine?.status === 'paused';
+      const paused = runner?.engine.status === 'paused';
       $('pauseIcon').classList.toggle('hidden', paused);
       $('playIcon').classList.toggle('hidden', !paused);
       $('pauseBtn').setAttribute('aria-label', paused ? 'Resume' : 'Pause');
@@ -297,18 +311,13 @@ const base = import.meta.env.BASE_URL;
         d.className = 'd';
         d.textContent = formatClock(s.duration);
         li.append(name, d);
-        li.addEventListener('click', () => { if (!isLocked()) engine?.jumpTo(i); });
+        li.addEventListener('click', () => { if (!isLocked()) runner?.jumpTo(i); });
         list.appendChild(li);
       });
     }
 
     function finish() {
-      clearInterval(tickHandle);
-      keepAwake(false);
-      const o = opts();
-      if (o.beeps) sounds.done();
-      if (o.vibrate) vibrate([300, 120, 300, 120, 500]);
-      if (o.voice) speak('Timer complete. Nice work.');
+      pip?.close();
       $('runScreen').classList.add('hidden');
       $('doneScreen').classList.remove('hidden');
       document.body.style.removeProperty('--step');
@@ -319,12 +328,27 @@ const base = import.meta.env.BASE_URL;
     }
 
     function exit() {
-      if (engine && engine.status !== 'done' && !confirm('Stop this timer?')) return;
-      clearInterval(tickHandle);
-      keepAwake(false);
-      stopSpeaking();
+      if (runner && runner.engine.status !== 'done' && !confirm('Stop this timer?')) return;
+      pip?.close();
+      runner?.stop();
       leaving = true;
-      location.href = `${base}/timer`;
+      location.href = runner?.returnTo || cameFrom || fallback;
+    }
+
+    function minimize() {
+      if (!runner) return;
+      const target = runner.returnTo || cameFrom || fallback;
+      runner.setMode('mini');
+      runner.detach();
+      leaving = true;
+      location.href = target;
+    }
+
+    async function popOut() {
+      if (!runner) return;
+      pip = pip || new TimerPip(runner);
+      const ok = await pip.show();
+      if (!ok) alert('Pop-out isn’t available in this browser. Use Mini to keep the timer on screen while you use the rest of the site.');
     }
 
     // ---------- Lock: hold for 1 second to unlock ----------
@@ -354,11 +378,13 @@ const base = import.meta.env.BASE_URL;
     }
 
     $('startBtn').addEventListener('click', start);
-    $('againBtn').addEventListener('click', start);
-    $('pauseBtn').addEventListener('click', () => engine?.toggle());
-    $('skipBtn').addEventListener('click', () => engine?.skip());
-    $('backBtn').addEventListener('click', () => engine?.back());
+    $('againBtn').addEventListener('click', () => { if (timer) { steps = expand(timer.structure); start(); } });
+    $('pauseBtn').addEventListener('click', () => runner?.toggle());
+    $('skipBtn').addEventListener('click', () => runner?.skip());
+    $('backBtn').addEventListener('click', () => runner?.back());
     $('exitBtn').addEventListener('click', exit);
+    $('miniBtn').addEventListener('click', minimize);
+    $('pipBtn').addEventListener('click', popOut);
     $('lockBtn').addEventListener('click', () => setLocked(true));
     const ub = $('unlockBtn');
     ub.addEventListener('pointerdown', holdStart);
@@ -367,25 +393,27 @@ const base = import.meta.env.BASE_URL;
 
     $('saveSharedBtn').addEventListener('click', () => {
       if (!sharedTimer) return;
-      const copy = isPreset(sharedTimer.timerId) ? { ...sharedTimer, timerId: 'T' + Date.now().toString(36).toUpperCase() } : sharedTimer;
+      const copy = isPreset(sharedTimer.timerId) ? { ...sharedTimer, timerId: newId() } : sharedTimer;
       saveTimer(copy);
       $('saveSharedBtn').textContent = 'Saved ✓';
       ($('saveSharedBtn') as HTMLButtonElement).disabled = true;
     });
 
     document.addEventListener('keydown', (e) => {
-      if (!engine || isLocked() || $('runScreen').classList.contains('hidden')) return;
-      if (e.code === 'Space') { e.preventDefault(); engine.toggle(); }
-      else if (e.key === 'ArrowRight') engine.skip();
-      else if (e.key === 'ArrowLeft') engine.back();
+      if (!runner || isLocked() || $('runScreen').classList.contains('hidden')) return;
+      if (e.code === 'Space') { e.preventDefault(); runner.toggle(); }
+      else if (e.key === 'ArrowRight') runner.skip();
+      else if (e.key === 'ArrowLeft') runner.back();
     });
 
     // Catch up instantly when the phone wakes or the tab comes back.
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') frame(); });
-    window.addEventListener('pageshow', frame);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runner?.tick(); });
+    window.addEventListener('pageshow', () => runner?.tick());
+    window.addEventListener('pagehide', () => runner?.save(true));
 
-    window.addEventListener('beforeunload', (e) => {
-      if (!leaving && engine && engine.status === 'running') { e.preventDefault(); e.returnValue = ''; }
+    // Leaving any other way (back button, a link) keeps the timer running as the mini timer.
+    window.addEventListener('beforeunload', () => {
+      if (!leaving && runner && runner.engine.status !== 'done') runner.setMode('mini');
     });
 
     load();
@@ -423,7 +451,12 @@ const base = import.meta.env.BASE_URL;
   /* Running */
   .tp-run { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; padding-left: 0; padding-right: 0; background: #161a20; background: color-mix(in srgb, var(--step) 22%, #0f1115); transition: background 0.4s; }
   .tp.is-paused .tp-run { background: #1b1e25; }
-  .tp-top { flex-shrink: 0; padding: 18px 16px 10px; text-align: center; }
+  .tp-topbar { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px 0; }
+  .tp-topbar-right { display: flex; gap: 8px; }
+  .tp-chip-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 0; border-radius: 99px;
+                 background: rgba(0,0,0,0.35); color: #f5f7fa; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .tp-chip-btn:active { transform: scale(0.96); }
+  .tp-top { flex-shrink: 0; padding: 6px 16px 10px; text-align: center; }
   .tp-round { min-height: 20px; color: color-mix(in srgb, var(--step) 70%, white); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; }
   .tp-step-name { font-size: clamp(26px, 7vw, 44px); font-weight: 800; letter-spacing: -0.01em; line-height: 1.1; margin-top: 4px; }
   .tp-clock { font-size: clamp(96px, 30vw, 220px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.04em; margin: 8px 0 12px; color: var(--step); }

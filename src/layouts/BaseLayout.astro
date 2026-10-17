@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import GlossaryCard from '../components/GlossaryCard.astro';
+import MiniTimer from '../components/MiniTimer.astro';
 interface Props { title: string; }
 const { title } = Astro.props;
 const base = import.meta.env.BASE_URL;
@@ -55,5 +56,6 @@ const navLinks = [
       </div>
     </footer>
     <GlossaryCard />
+    <MiniTimer />
   </body>
 </html>

@@ -107,5 +107,29 @@ now = 0;
   eq('Back mid-interval restarts it', [eng.current?.name, Math.round(eng.msLeft() / 1000)], ['A', 30]);
 }
 
+now = 0;
+{
+  // Moving to another page: save, then pick up on a new engine.
+  const structure = [{ type: 'work', name: 'A', duration: 30 }, { type: 'rest', name: 'B', duration: 30 }];
+  const { eng } = run(structure);
+  eng.start();
+  advance(eng, 10000);
+  const snap = eng.snapshot();
+  now += 2000; // page loading
+  const { eng: eng2, log: log2 } = run(structure);
+  eng2.restore(snap);
+  eng2.update(now);
+  eq('Restored timer keeps its place', [eng2.current?.name, Math.round(eng2.msLeft() / 1000)], ['A', 18]);
+  advance(eng2, 20000);
+  eq('Restored timer moves on and cues normally', log2.slice(0, 3), ['cue:halfway', 'cue:nextUp:B', 'cue:countdown:3']);
+  eng2.pause();
+  const paused = eng2.snapshot();
+  now += 60000;
+  const { eng: eng3 } = run(structure);
+  eng3.restore(paused);
+  eng3.update(now);
+  eq('Restored paused timer stays paused', [eng3.status, eng3.current?.name, Math.round(eng3.msLeft() / 1000)], ['paused', 'B', 28]);
+}
+
 console.log(failed ? `\n${failed} failed` : '\nAll timer tests passed');
 process.exit(failed ? 1 : 0);

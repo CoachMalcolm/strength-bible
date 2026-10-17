@@ -82,6 +82,57 @@ try {
   await sleep(300);
   const lastName = await page.textContent('#stepName');
   check('Tapping an interval jumps to it', listCount === 6 && lastName === 'Rest', `${listCount} steps, now on ${lastName}`);
+  await page.click('#exitBtn');
+  await page.waitForURL(/\/timer\/?$/);
+  check('Stop ends the timer (no mini bubble left behind)', !(await page.isVisible('#miniTimer')));
+
+  // ---- Mini timer ----
+  await page.locator('#presetTimers > li', { hasText: 'EMOM' }).getByText('Start', { exact: true }).click();
+  await page.waitForURL(/timer\/run/);
+  await page.click('#startBtn');
+  await sleep(1200);
+  await page.click('#miniBtn');
+  await page.waitForURL(/\/timer\/?$/);
+  const miniShown = await page.isVisible('#miniTimer');
+  const m1 = await page.textContent('#miniClock');
+  await sleep(2200);
+  const m2 = await page.textContent('#miniClock');
+  check('Mini shrinks the timer and it keeps running', miniShown && m1 !== m2, `${m1} → ${m2}`);
+  const before = await page.locator('#miniTimer').boundingBox();
+  await page.mouse.move(before.x + 40, before.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(80, 200, { steps: 8 });
+  await page.mouse.up();
+  const after = await page.locator('#miniTimer').boundingBox();
+  check('Mini timer can be dragged', Math.abs(after.x - before.x) > 50 && Math.abs(after.y - before.y) > 50,
+    `(${Math.round(before.x)},${Math.round(before.y)}) → (${Math.round(after.x)},${Math.round(after.y)})`);
+  await page.goto(`${BASE}/concepts`);
+  await sleep(500);
+  const moved = await page.locator('#miniTimer').boundingBox();
+  const m3 = await page.textContent('#miniClock');
+  check('Mini follows you to other pages, same spot, still counting',
+    !!moved && Math.abs(moved.x - after.x) < 4 && Math.abs(moved.y - after.y) < 4 && m3 !== m2, `${m3} at (${Math.round(moved?.x)},${Math.round(moved?.y)})`);
+  await page.click('#miniToggle');
+  await sleep(1200);
+  const pz1 = await page.textContent('#miniClock');
+  await sleep(1300);
+  const pz2 = await page.textContent('#miniClock');
+  check('Pause from the mini timer', pz1 === pz2 && (await page.getAttribute('#miniTimer', 'class')).includes('is-paused'), `${pz1} = ${pz2}`);
+  const miniName = (await page.textContent('#miniName')) || '';
+  await page.click('#miniExpand');
+  await page.waitForURL(/resume=1/);
+  await sleep(300);
+  const fullName = await page.textContent('#stepName');
+  const fullClock = await page.textContent('#clock');
+  check('Expand returns to the full timer at the same spot', !!fullName && miniName.startsWith(fullName) && fullClock === pz2, `${fullName} ${fullClock} (mini: ${miniName} ${pz2})`);
+  await page.click('#pauseBtn');
+  await page.click('#miniBtn');
+  await page.waitForURL(/\/concepts\/?$/);
+  check('Mini returns you to the page you were on', true);
+  await page.click('#miniStop');
+  await sleep(200);
+  await page.reload();
+  check('Stop from the mini timer ends it everywhere', !(await page.isVisible('#miniTimer')));
 
   // ---- Share link ----
   const shared = { timerId: 'SHARED1', timerName: 'Shared Timer ✓', structure: [{ type: 'work', name: 'Go', duration: 20 }] };

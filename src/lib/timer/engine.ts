@@ -20,6 +20,8 @@ export type EngineEvent =
 
 export type Status = 'idle' | 'running' | 'paused' | 'done';
 
+export interface EngineSnapshot { index: number; status: Status; endAt: number; pausedLeft: number }
+
 const SHORT_INTERVAL = 12; // seconds; halfway is skipped on short intervals when counting down
 
 export class TimerEngine {
@@ -41,6 +43,26 @@ export class TimerEngine {
     this.steps = steps;
     this.total = steps.reduce((s, x) => s + x.duration, 0);
     this.cues = { countdown3s: cues.countdown3s !== false, nextUp: cues.nextUp !== false };
+  }
+
+  /** Everything needed to pick the timer up again on another page. Times are wall-clock ms. */
+  snapshot(): EngineSnapshot {
+    return { index: this.index, status: this.status, endAt: this.endAt, pausedLeft: this.pausedLeft };
+  }
+
+  /**
+   * Continue a timer from a snapshot (e.g. after moving to another page).
+   * If intervals finished in the meantime, the next update() catches up.
+   */
+  restore(s: EngineSnapshot) {
+    if (!this.steps.length) return;
+    this.index = Math.min(Math.max(0, s.index | 0), this.steps.length - 1);
+    this.status = s.status === 'paused' || s.status === 'done' ? s.status : 'running';
+    this.endAt = Number(s.endAt) || this.clock() + this.steps[this.index].duration * 1000;
+    this.pausedLeft = Number(s.pausedLeft) || 0;
+    this.fired.clear();
+    // Only cues still ahead of us can fire.
+    this.lastSecs = Math.ceil(this.msLeft() / 1000);
   }
 
   on(fn: (e: EngineEvent) => void) { this.listeners.push(fn); }

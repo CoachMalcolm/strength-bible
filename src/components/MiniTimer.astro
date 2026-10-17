@@ -1,0 +1,187 @@
+---
+/**
+ * Mini timer: a small draggable bubble that appears on every page while a
+ * timer is running, so the athlete can keep reading, logging or browsing.
+ * Included once in BaseLayout. Does nothing when no timer is running.
+ */
+const base = import.meta.env.BASE_URL;
+---
+<div id="miniTimer" class="mini hidden" data-base={base} role="region" aria-label="Running timer">
+  <div class="mini-body">
+    <div class="mini-text">
+      <div id="miniName" class="mini-name"></div>
+      <div id="miniClock" class="mini-clock" role="timer">0:00</div>
+    </div>
+    <button type="button" id="miniToggle" class="mini-btn mini-btn-main" aria-label="Pause">
+      <svg data-icon="pause" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+      <svg data-icon="play" class="hidden" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>
+    </button>
+  </div>
+  <div class="mini-bar"><div id="miniProgress" class="mini-progress"></div></div>
+  <div class="mini-actions">
+    <button type="button" id="miniSkip" class="mini-act" aria-label="Next interval">Skip</button>
+    <button type="button" id="miniPip" class="mini-act hidden" aria-label="Pop out over other apps">Pop out</button>
+    <button type="button" id="miniExpand" class="mini-act" aria-label="Full screen">Expand</button>
+    <button type="button" id="miniStop" class="mini-act" aria-label="Stop timer">✕</button>
+  </div>
+  <div id="miniSound" class="mini-sound hidden">Tap anywhere for sound</div>
+</div>
+
+<style is:global>
+  .mini { position: fixed; z-index: 70; left: 0; top: 0; width: 236px; border-radius: 16px; overflow: hidden;
+          background: #161a20; color: #f5f7fa; box-shadow: 0 10px 30px rgba(0,0,0,0.35); touch-action: none;
+          -webkit-user-select: none; user-select: none; font-family: Inter, system-ui, sans-serif; }
+  .mini.hidden { display: none; }
+  .mini-body { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; cursor: grab;
+               background: color-mix(in srgb, var(--step, #2e3440) 30%, #161a20); }
+  .mini.is-dragging .mini-body { cursor: grabbing; }
+  .mini-text { flex: 1; min-width: 0; }
+  .mini-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #cbd2dc;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini-clock { font-size: 34px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--step, #b8f52c); }
+  .mini.is-paused .mini-clock { color: #9aa4b2; }
+  .mini-btn { width: 44px; height: 44px; border-radius: 99px; border: 0; display: grid; place-items: center; cursor: pointer; flex-shrink: 0; }
+  .mini-btn-main { background: var(--step, #b8f52c); color: #0f1115; }
+  .mini-bar { height: 4px; background: rgba(255,255,255,0.12); }
+  .mini-progress { height: 100%; width: 0; background: var(--step, #b8f52c); }
+  .mini-actions { display: flex; }
+  .mini-act { flex: 1 1 auto; white-space: nowrap; padding: 9px 6px; border: 0; background: transparent; color: #cbd2dc; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .mini-act + .mini-act { border-left: 1px solid rgba(255,255,255,0.08); }
+  .mini-act:active { background: rgba(255,255,255,0.08); }
+  .mini-act.hidden { display: none; }
+  .mini-sound { padding: 6px 10px; font-size: 11px; text-align: center; background: #f59e0b; color: #0f1115; font-weight: 600; }
+  .mini-sound.hidden { display: none; }
+</style>
+
+<script>
+  import { Runner } from '../lib/timer/runner';
+  import { colorFor, formatClock } from '../lib/timer/model';
+  import { audioReady, unlockOnFirstTouch, unlock } from '../lib/timer/feedback';
+  import { TimerPip, pipSupported } from '../lib/timer/pip';
+
+  const box = document.getElementById('miniTimer') as HTMLElement;
+  const base = box.dataset.base || '';
+  const $ = (id: string) => document.getElementById(id) as HTMLElement;
+  let runner: Runner | null = null;
+  let pip: TimerPip | null = null;
+
+  // ---------- Position (remembered as a share of the screen, so rotation works) ----------
+  const MARGIN = 10;
+  function place(x: number, y: number) {
+    const w = box.offsetWidth || 236;
+    const h = box.offsetHeight || 120;
+    const maxX = window.innerWidth - w - MARGIN;
+    const maxY = window.innerHeight - h - MARGIN;
+    const cx = Math.min(Math.max(MARGIN, x), Math.max(MARGIN, maxX));
+    const cy = Math.min(Math.max(MARGIN, y), Math.max(MARGIN, maxY));
+    box.style.transform = `translate(${cx}px, ${cy}px)`;
+    return { x: cx, y: cy };
+  }
+  function restorePosition() {
+    const p = runner?.pos;
+    if (p) place(p.x * window.innerWidth, p.y * window.innerHeight);
+    else place(window.innerWidth, window.innerHeight); // bottom-right corner
+  }
+  let current = { x: 0, y: 0 };
+  function currentXY() {
+    const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(box.style.transform);
+    return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+  }
+
+  let drag: { id: number; dx: number; dy: number; moved: boolean } | null = null;
+  const handle = box.querySelector('.mini-body') as HTMLElement;
+  handle.addEventListener('pointerdown', (e) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    current = currentXY();
+    drag = { id: e.pointerId, dx: e.clientX - current.x, dy: e.clientY - current.y, moved: false };
+    handle.setPointerCapture(e.pointerId);
+    box.classList.add('is-dragging');
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.moved = true;
+    current = place(e.clientX - drag.dx, e.clientY - drag.dy);
+  });
+  const endDrag = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    box.classList.remove('is-dragging');
+    if (drag.moved && runner) runner.setMode('mini', { pos: { x: current.x / window.innerWidth, y: current.y / window.innerHeight } });
+    drag = null;
+  };
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+  window.addEventListener('resize', () => { if (runner) restorePosition(); });
+
+  // ---------- Paint ----------
+  function paint() {
+    if (!runner) return;
+    const { engine } = runner;
+    const step = engine.current;
+    if (!step) return;
+    box.style.setProperty('--step', colorFor(step));
+    const round = step.totalRoundCount && step.totalRoundCount > 1 ? ` ${step.roundNumber}/${step.totalRoundCount}` : '';
+    $('miniName').textContent = engine.status === 'done' ? 'Done' : `${step.name}${round}`;
+    $('miniClock').textContent = engine.status === 'done' ? '✓' : formatClock(engine.msLeft() / 1000);
+    ($('miniProgress') as HTMLElement).style.width = `${100 - (engine.msLeft() / (step.duration * 1000)) * 100}%`;
+    const paused = engine.status === 'paused';
+    box.classList.toggle('is-paused', paused);
+    box.querySelector('[data-icon="pause"]')!.classList.toggle('hidden', paused);
+    box.querySelector('[data-icon="play"]')!.classList.toggle('hidden', !paused);
+    $('miniToggle').setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+  }
+
+  function hide() {
+    box.classList.add('hidden');
+    runner = null;
+  }
+
+  // ---------- Start ----------
+  function init() {
+    runner = Runner.resume();
+    if (!runner) return;
+    box.classList.remove('hidden');
+    if (pipSupported()) $('miniPip').classList.remove('hidden');
+    // Phones block sound on a freshly loaded page until it's tapped.
+    if (!audioReady()) {
+      $('miniSound').classList.remove('hidden');
+      unlockOnFirstTouch(() => $('miniSound').classList.add('hidden'));
+    }
+    restorePosition();
+    // Re-fit on screen whenever the bubble changes size (e.g. the sound note goes away).
+    if ('ResizeObserver' in window) new ResizeObserver(() => { const c = currentXY(); place(c.x, c.y); }).observe(box);
+    runner.on((r, e) => {
+      paint();
+      if (e?.type === 'done') { pip?.close(); setTimeout(hide, 4000); }
+    });
+    paint();
+  }
+
+  $('miniToggle').addEventListener('click', () => { unlock(); runner?.toggle(); });
+  $('miniSkip').addEventListener('click', () => runner?.skip());
+  $('miniExpand').addEventListener('click', () => {
+    if (!runner) return;
+    runner.setMode('full');
+    runner.detach();
+    location.href = `${base}/timer/run?resume=1`;
+  });
+  $('miniStop').addEventListener('click', () => {
+    if (!runner || !confirm('Stop this timer?')) return;
+    pip?.close();
+    runner.stop();
+    hide();
+  });
+  $('miniPip').addEventListener('click', async () => {
+    if (!runner) return;
+    pip = pip || new TimerPip(runner);
+    const ok = await pip.show();
+    if (!ok) alert('Pop-out isn’t available in this browser. The mini timer still works on every page here.');
+  });
+
+  // Keep the saved session current when leaving the page.
+  window.addEventListener('pagehide', () => runner?.save(true));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runner?.tick(); });
+  // If the timer is stopped or finished in another tab, follow along.
+  window.addEventListener('storage', (e) => { if (e.key === 'bible:timer-session' && !e.newValue && runner) { runner.stop(); hide(); } });
+
+  init();
+</script>

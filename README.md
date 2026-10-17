@@ -70,8 +70,8 @@ Pushing to `main` deploys automatically to GitHub Pages (`.github/workflows/depl
 
 ## Project Docs
 
+- `docs/handoff/` — **start here**: development status, project tracker, restart prompt, and an onboarding prompt for AI agents
 - `docs/build-spec.md` — build phases and the content corrections log
-- `docs/CHECKPOINT.md` — current state and what's next
 - `docs/video-gaps.md` — videos still to source
 
 ## Repository Structure
