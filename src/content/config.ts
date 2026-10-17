@@ -108,7 +108,23 @@ const programs = defineCollection({
   }),
 });
 
+const glossary = defineCollection({
+  schema: z.object({
+    term: z.string(),
+    // Every spelling that should be highlighted in the text. Spellings with
+    // two or more capital letters (RPE, 1RM, mTOR) match case-sensitively.
+    aliases: z.array(z.string()).default([]),
+    category: z.string().optional(),
+    short: z.string(),
+    related_concepts: z.array(z.string()).optional(),
+    status: z.enum(['draft', 'final']).default('draft'),
+    // Set to false to keep a term in the glossary without auto-highlighting it.
+    highlight: z.boolean().default(true),
+  }),
+});
+
 export const collections = {
+  glossary,
   'front-matter': frontMatter,
   concepts,
   lifts,

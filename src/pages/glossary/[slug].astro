@@ -1,0 +1,131 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const LEVEL_COLLECTIONS = ['concepts', 'lifts', 'bodyweight', 'mobility'] as const;
+  const SECTION = { concepts: 'Concept', lifts: 'Lift', bodyweight: 'Bodyweight', mobility: 'Mobility' } as const;
+
+  function escapeRegex(s: string) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  const terms = await getCollection('glossary');
+  const concepts = await getCollection('concepts');
+  const conceptTitles = Object.fromEntries(concepts.map((c) => [c.slug, { title: c.data.title, icon: c.data.icon }]));
+
+  // Every page with leveled text, for the "Where you'll see it" list.
+  const pages: { href: string; title: string; icon: string; section: string; text: string }[] = [];
+  for (const col of LEVEL_COLLECTIONS) {
+    for (const item of await getCollection(col)) {
+      const text = (item.data.levels ?? []).map((l: any) => `${l.title ?? ''}\n${l.body ?? ''}`).join('\n');
+      pages.push({ href: `/${col}/${item.slug}`, title: item.data.title, icon: item.data.icon, section: SECTION[col], text });
+    }
+  }
+
+  return terms.map((entry) => {
+    const spellings = (entry.data.aliases?.length ? entry.data.aliases : [entry.data.term]).filter(Boolean);
+    const regexes = spellings.map((a) => {
+      const sensitive = (a.match(/[A-Z]/g) ?? []).length >= 2;
+      return new RegExp(`(?<![A-Za-z0-9])${escapeRegex(a)}(?![A-Za-z0-9])`, sensitive ? '' : 'i');
+    });
+    const appearsIn = pages.filter((p) => regexes.some((r) => r.test(p.text))).map(({ text, ...rest }) => rest);
+    const related = (entry.data.related_concepts ?? [])
+      .filter((s) => conceptTitles[s])
+      .map((s) => ({ slug: s, ...conceptTitles[s] }));
+    return { params: { slug: entry.slug }, props: { entry, appearsIn, related } };
+  });
+}
+
+const { entry, appearsIn, related } = Astro.props;
+const { Content } = await entry.render();
+const base = import.meta.env.BASE_URL;
+const otherSpellings = (entry.data.aliases ?? []).filter((a) => a.toLowerCase() !== entry.data.term.toLowerCase());
+---
+<BaseLayout title={entry.data.term}>
+  <article class="max-w-3xl">
+    <a href={`${base}/glossary`} class="text-sm text-slate-500 hover:text-amber-600">&larr; Back to Glossary</a>
+    <header class="mt-6 mb-8">
+      {entry.data.category && <div class="text-xs uppercase tracking-wider text-amber-700 font-semibold mb-1">{entry.data.category}</div>}
+      <h1 class="text-4xl font-bold tracking-tight">{entry.data.term}</h1>
+      {otherSpellings.length > 0 && <p class="text-sm text-slate-500 mt-2">Also written: {otherSpellings.join(', ')}</p>}
+      <p class="text-xl text-slate-700 mt-4 leading-relaxed">{entry.data.short}</p>
+    </header>
+
+    <div class="flex flex-wrap gap-2 mb-10" data-slug={entry.slug} id="term-status">
+      <button type="button" class="term-status-btn" data-status="known">✓ I know this</button>
+      <button type="button" class="term-status-btn" data-status="learning">Still learning</button>
+    </div>
+
+    <div class="md-body text-slate-700 leading-relaxed"><Content /></div>
+
+    {related.length > 0 && (
+      <section class="mt-12">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">Learn it in depth</h2>
+        <div class="flex flex-wrap gap-2">
+          {related.map((r) => (
+            <a href={`${base}/concepts/${r.slug}`} class="inline-flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 hover:border-amber-400 rounded-md text-sm">
+              <span>{r.icon}</span><span>{r.title}</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {appearsIn.length > 0 && (
+      <section class="mt-10">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-3">Where you'll see it</h2>
+        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {appearsIn.map((p) => (
+            <li>
+              <a href={`${base}${p.href}`} class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 hover:border-amber-400 rounded-md text-sm">
+                <span>{p.icon}</span><span class="font-medium">{p.title}</span><span class="ml-auto text-xs text-slate-400">{p.section}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </article>
+</BaseLayout>
+
+<style>
+  .term-status-btn { @apply px-4 py-2 rounded-full border border-slate-300 bg-white text-sm font-medium text-slate-700; }
+  .term-status-btn[aria-pressed="true"][data-status="known"] { @apply bg-green-600 border-green-600 text-white; }
+  .term-status-btn[aria-pressed="true"][data-status="learning"] { @apply bg-amber-500 border-amber-500 text-white; }
+</style>
+
+<script>
+  const KEY = 'bible:terms';
+  const wrap = document.getElementById('term-status') as HTMLElement;
+  const slug = wrap.dataset.slug || '';
+  function load(): Record<string, any> {
+    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
+  }
+  function paint() {
+    const s = load()[slug]?.status;
+    wrap.querySelectorAll<HTMLElement>('.term-status-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.status === s)));
+  }
+  // Opening a term's page counts as having seen it.
+  (() => {
+    const all = load();
+    if (!all[slug]) {
+      const now = new Date().toISOString();
+      all[slug] = { status: 'seen', firstSeen: now, updated: now };
+      try { localStorage.setItem(KEY, JSON.stringify(all)); } catch {}
+    }
+  })();
+  wrap.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('.term-status-btn');
+    if (!b) return;
+    const all = load();
+    const now = new Date().toISOString();
+    const wanted = b.dataset.status;
+    const next = all[slug]?.status === wanted ? 'seen' : wanted;
+    all[slug] = { status: next, firstSeen: all[slug]?.firstSeen ?? now, updated: now };
+    try { localStorage.setItem(KEY, JSON.stringify(all)); } catch {}
+    window.dispatchEvent(new CustomEvent('bible:terms-updated'));
+    paint();
+  });
+  paint();
+</script>

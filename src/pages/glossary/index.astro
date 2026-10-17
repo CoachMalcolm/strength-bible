@@ -1,0 +1,91 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+const entries = (await getCollection('glossary')).sort((a, b) => a.data.term.localeCompare(b.data.term));
+const base = import.meta.env.BASE_URL;
+const letters = [...new Set(entries.map((e) => e.data.term[0].toUpperCase()))];
+---
+<BaseLayout title="Glossary">
+  <h1 class="text-4xl font-bold mb-2">Glossary</h1>
+  <p class="text-slate-600 mb-6 max-w-2xl">
+    Every term in the book. Tap a dotted word anywhere on the site to see its definition and mark whether you know it.
+    Your list here grows as you learn.
+  </p>
+
+  <div class="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Filter terms">
+    <button type="button" class="gloss-filter" data-filter="all" aria-pressed="true">All <span class="count"></span></button>
+    <button type="button" class="gloss-filter" data-filter="known" aria-pressed="false">✓ Known <span class="count"></span></button>
+    <button type="button" class="gloss-filter" data-filter="learning" aria-pressed="false">Still learning <span class="count"></span></button>
+    <button type="button" class="gloss-filter" data-filter="new" aria-pressed="false">Not marked yet <span class="count"></span></button>
+  </div>
+  <input id="gloss-search" type="search" placeholder="Search terms…" class="w-full sm:w-80 mb-8 px-3 py-2 rounded-md border border-slate-300 bg-white focus:border-amber-500 focus:outline-none" />
+
+  <div id="gloss-list" class="space-y-8">
+    {letters.map((letter) => (
+      <section class="gloss-letter" data-letter={letter}>
+        <h2 class="text-sm font-bold text-slate-400 mb-2">{letter}</h2>
+        <ul class="divide-y divide-slate-200 bg-white border border-slate-200 rounded-lg">
+          {entries.filter((e) => e.data.term[0].toUpperCase() === letter).map((e) => (
+            <li class="gloss-row" data-slug={e.slug} data-search={[e.data.term, ...(e.data.aliases ?? []), e.data.short].join(' ').toLowerCase()}>
+              <a href={`${base}/glossary/${e.slug}`} class="flex items-start gap-3 px-4 py-3 hover:bg-amber-50 transition">
+                <span class="gloss-dot mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border border-slate-300" aria-hidden="true"></span>
+                <span class="min-w-0">
+                  <span class="font-semibold text-slate-900">{e.data.term}</span>
+                  <span class="block text-sm text-slate-600">{e.data.short}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </div>
+  <p id="gloss-empty" class="hidden text-slate-500">No terms match.</p>
+</BaseLayout>
+
+<style>
+  .gloss-filter { @apply px-3 py-1.5 rounded-full border border-slate-300 bg-white text-sm font-medium text-slate-700; }
+  .gloss-filter[aria-pressed="true"] { @apply bg-slate-900 border-slate-900 text-white; }
+  .gloss-filter .count { @apply opacity-70; }
+</style>
+
+<script>
+  const KEY = 'bible:terms';
+  let filter = 'all';
+  function load(): Record<string, { status: string }> {
+    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
+  }
+  function statusOf(all: Record<string, { status: string }>, slug: string) {
+    const s = all[slug]?.status;
+    return s === 'known' || s === 'learning' ? s : 'new';
+  }
+  function render() {
+    const all = load();
+    const q = (document.getElementById('gloss-search') as HTMLInputElement).value.trim().toLowerCase();
+    const counts: Record<string, number> = { all: 0, known: 0, learning: 0, new: 0 };
+    let shown = 0;
+    document.querySelectorAll<HTMLElement>('.gloss-row').forEach((row) => {
+      const s = statusOf(all, row.dataset.slug || '');
+      counts.all++; counts[s]++;
+      const dot = row.querySelector('.gloss-dot') as HTMLElement;
+      dot.className = 'gloss-dot mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border ' +
+        (s === 'known' ? 'bg-green-600 border-green-600' : s === 'learning' ? 'bg-amber-500 border-amber-500' : 'border-slate-300');
+      const visible = (filter === 'all' || filter === s) && (!q || (row.dataset.search || '').includes(q));
+      row.classList.toggle('hidden', !visible);
+      if (visible) shown++;
+    });
+    document.querySelectorAll<HTMLElement>('.gloss-letter').forEach((sec) => {
+      sec.classList.toggle('hidden', !sec.querySelector('.gloss-row:not(.hidden)'));
+    });
+    document.getElementById('gloss-empty')!.classList.toggle('hidden', shown > 0);
+    document.querySelectorAll<HTMLElement>('.gloss-filter').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
+      (b.querySelector('.count') as HTMLElement).textContent = `(${counts[b.dataset.filter || 'all']})`;
+    });
+  }
+  document.querySelectorAll<HTMLElement>('.gloss-filter').forEach((b) =>
+    b.addEventListener('click', () => { filter = b.dataset.filter || 'all'; render(); }));
+  document.getElementById('gloss-search')!.addEventListener('input', render);
+  window.addEventListener('bible:terms-updated', render);
+  render();
+</script>

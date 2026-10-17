@@ -26,3 +26,28 @@ body {
   .md-body th { @apply text-left font-semibold bg-slate-100 px-3 py-2 border border-slate-200; }
   .md-body td { @apply px-3 py-2 border border-slate-200 align-top; }
 }
+
+/* Living glossary */
+@layer components {
+  .gloss-term {
+    @apply inline p-0 m-0 bg-transparent border-0 text-inherit cursor-pointer rounded-sm;
+    font: inherit;
+    line-height: inherit;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    text-decoration-color: theme('colors.amber.500');
+  }
+  .gloss-term:hover, .gloss-term:focus-visible { @apply bg-amber-100 outline-none; }
+  .gloss-term[data-status="learning"] { @apply bg-amber-100; text-decoration-style: solid; }
+  .gloss-term[data-status="known"] { text-decoration-color: theme('colors.slate.300'); text-decoration-style: solid; text-decoration-thickness: 1px; }
+
+  .gloss-card {
+    @apply absolute z-[60] bg-white border border-slate-200 rounded-xl shadow-xl p-4;
+  }
+  .gloss-card--sheet {
+    @apply fixed left-0 right-0 bottom-0 top-auto rounded-b-none rounded-t-2xl border-x-0 border-b-0 p-5 pb-8;
+    width: auto !important;
+  }
+}

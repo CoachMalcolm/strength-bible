@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import GlossaryCard from '../components/GlossaryCard.astro';
 interface Props { title: string; }
 const { title } = Astro.props;
 const base = import.meta.env.BASE_URL;
@@ -12,6 +13,7 @@ const navLinks = [
   { href: `${base}/bodyweight`, label: 'Bodyweight' },
   { href: `${base}/mobility`, label: 'Mobility' },
   { href: `${base}/journal`, label: 'Journal' },
+  { href: `${base}/glossary`, label: 'Glossary' },
   { href: `${base}/mastery`, label: 'Mastery' },
   { href: `${base}/network`, label: 'Network' },
 ];
@@ -51,5 +53,6 @@ const navLinks = [
         <a href="#" class="hover:text-amber-600">↑ Back to top</a>
       </div>
     </footer>
+    <GlossaryCard />
   </body>
 </html>
