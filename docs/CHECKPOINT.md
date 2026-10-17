@@ -1,44 +1,42 @@
 # CHECKPOINT — The Strength B.I.B.L.E.
 
-**Last Updated:** 2026-10-05
-**Session ID:** 020
-**Phase:** 4 — localStorage Journal Memory (in progress)
+**Last Updated:** 2026-10-17
 
 ## Live Site
 
 https://coachmalcolm.github.io/strength-bible/
 
-## Current State
+## Done
 
-- Phase 3: COMPLETE (all 9 programs + 9 journals deployed)
-- Phase 4: IN PROGRESS
-  - ✅ localStorage utility built (src/lib/storage.ts)
-  - ✅ CFU component saves mastery on correct answer
-  - ✅ LevelBlock passes slug + level to CFU
-  - ✅ Story links mark opened (LevelBlock)
-  - ✅ Mastery Tracker page built at /mastery
-  - ✅ Export/Import buttons built (not yet tested)
-  - ✅ Mastery verified working: Back Squat, Progressive Overload, Technique Priority
+- CFU: answers shuffled; wrong answers re-teach instead of revealing (retry content when written)
+- Level text renders as formatted Markdown (tables, bold, lists)
+- Living glossary: 49 draft terms (`src/content/glossary`), auto-highlighted in level text,
+  pop-up card with "I know this" / "Still learning", `/glossary` list with filters, term pages
+- Timer (`/timer`): builder, player, presets, share links; same timer format as The Program;
+  clock-based engine (accurate when the phone locks), voice + beeps + vibration, screen kept awake
+- Build check on every non-main branch: timer tests, build, page checks, browser smoke test
 
-## What's Next (Phase 4 continued)
+## How changes ship
 
-1. Journal entries save to localStorage (not yet wired)
-2. Journal form UI to enter training data
-3. Reflection prompts read stored journal data
-4. Auto-resurface stories at 6-week intervals
-5. Mastery page shows program progress
-6. Progressive level unlocking (Level N visible only when N-1 passed)
+Work on a branch → the "Build check" workflow tests it → merge to `main` → GitHub Pages deploys.
 
-## What's Next (Phase 5)
+## Open items
 
-1. Living Glossary system
-2. Media Library + Favorites
-3. Speed, Conditioning, Nutrition modules
+- Malcolm to review glossary drafts (set `status: "final"` when approved)
+- Re-teach (`retry`) explanations written for only one CFU (Back Squat L2)
+- Highlighting not yet applied to programs and stories
+- Program prerequisites listed but not enforced
+- All progress is per-browser (localStorage); no accounts or coach view yet
 
-## Community Commitment
+## Big decision pending
 
-Free for Malcolm X Shabazz High School (Newark) — one year in-person installation, teaching, and support.
+Backend for accounts, coaches and programs (Supabase vs Firebase). Replaces the Google Sheets +
+PIN/coach-key model from The Program / Daily Dose, which isn't suitable for selling to programs
+that hold minors' data.
 
-## Prompt for Next Session
+## Worth carrying over from earlier apps
 
-You are continuing work on The Strength B.I.B.L.E. project. Read this checkpoint, then read docs/build-spec.md. Phase 4 (localStorage) is in progress. CFU mastery tracking works. Next task: build journal entry saving, reflection data wiring, and journal form UI. Do not re-plan. Execute.
+- The Program: target types (reps, left-in-tank, RPE, failure, burn, feel, time, AMRAP, check),
+  tempo, warm-up sets, "last time" panel, offline set queue, profiles, AI program creator, messaging
+- Daily Dose: plate math (`computeLoadPlan`), weekly allotments + guardrails, auto-rest after a set,
+  card shading by rep-range result, deload banner, 1–5 check-ins
