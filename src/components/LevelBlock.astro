@@ -1,7 +1,10 @@
 ---
 import CFU from './CFU.astro';
+import { renderMarkdown } from '../lib/markdown';
 const { level, index, slug } = Astro.props;
 const levelNumber = level.level ?? index + 1;
+const bodyHtml = await renderMarkdown(level.body);
+const retryHtml = await renderMarkdown(level.cfu?.retry);
 const levelNames = { 1: '8th Grade', 2: 'High School Senior', 3: 'College', 4: 'PhD / Scientific Depth' };
 ---
 <section
@@ -16,8 +19,19 @@ const levelNames = { 1: '8th Grade', 2: 'High School Senior', 3: 'College', 4: '
       <span class="text-sm text-slate-500">{levelNames[levelNumber]}</span>
     </div>
     <h2 class="text-2xl font-semibold mb-4">{level.title}</h2>
-    <div class="prose prose-slate max-w-none whitespace-pre-line text-slate-700 leading-relaxed mb-6">{level.body}</div>
-    {level.cfu && <CFU question={level.cfu.question} options={level.cfu.options} correctIndex={level.cfu.correct_index} slug={slug} level={levelNumber} />}
+    <div class="md-body text-slate-700 leading-relaxed mb-6" set:html={bodyHtml}></div>
+    {level.cfu && (
+      <CFU
+        question={level.cfu.question}
+        options={level.cfu.options}
+        correctIndex={level.cfu.correct_index}
+        retryHtml={retryHtml}
+        retryOptions={level.cfu.retry_options}
+        retryCorrectIndex={level.cfu.retry_correct_index}
+        slug={slug}
+        level={levelNumber}
+      />
+    )}
     {level.stories && level.stories.length > 0 && (
       <div class="mt-6 flex flex-wrap gap-3">
         {level.stories.map((story) => (

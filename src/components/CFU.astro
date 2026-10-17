@@ -1,34 +1,68 @@
 ---
+/**
+ * Check for Understanding.
+ *
+ * Flow:
+ *  1. Answer order is shuffled every time the page loads, so the right
+ *     answer is never in a predictable spot.
+ *  2. Correct -> mastery saved, next level unlocks.
+ *  3. Wrong -> the answer is NOT revealed. The athlete gets re-taught:
+ *       - If the content has a `retry` explanation (+ `retry_options`),
+ *         that explanation and a second question appear.
+ *       - Otherwise they're sent back to re-read the level and can try again.
+ *  4. Missing the re-teach question shows the right answer and resets the
+ *     check so they can take it again after re-reading.
+ */
 interface Props {
   question: string;
   options: string[];
   correctIndex: number;
+  retryHtml?: string;
+  retryOptions?: string[];
+  retryCorrectIndex?: number;
   slug?: string;
   level?: number;
 }
-const { question, options, correctIndex, slug, level } = Astro.props;
+const { question, options, correctIndex, retryHtml, retryOptions, retryCorrectIndex, slug, level } = Astro.props;
 const dataLevel = level ?? 1;
+const hasRetry = Boolean(retryHtml) && Array.isArray(retryOptions) && retryOptions.length > 1;
+const optionClass =
+  'cfu-option w-full text-left p-3 rounded-md border border-slate-300 bg-white hover:border-amber-400 hover:bg-amber-50 transition text-slate-800 disabled:cursor-default';
 ---
 <div class="cfu mt-8 p-6 bg-amber-50 border border-amber-200 rounded-lg"
      data-slug={slug ?? ''}
      data-level={String(dataLevel)}>
   <div class="text-xs uppercase tracking-wider text-amber-700 font-semibold mb-2">Check for Understanding</div>
-  <p class="text-lg font-medium text-slate-900 mb-4">{question}</p>
-  <div class="space-y-2">
-    {options.map((option, i) => (
-      <button
-        class="cfu-option w-full text-left p-3 rounded-md border border-slate-300 bg-white hover:border-amber-400 hover:bg-amber-50 transition text-slate-800"
-        data-correct={i === correctIndex ? "true" : "false"}
-      >
-        {option}
-      </button>
-    ))}
+
+  <div class="cfu-stage" data-stage="first">
+    <p class="text-lg font-medium text-slate-900 mb-4">{question}</p>
+    <div class="cfu-options space-y-2">
+      {options.map((option, i) => (
+        <button type="button" class={optionClass} data-correct={i === correctIndex ? 'true' : 'false'}>{option}</button>
+      ))}
+    </div>
   </div>
-  <div class="cfu-result mt-4 hidden text-sm font-semibold"></div>
+
+  {hasRetry && (
+    <div class="cfu-stage hidden mt-6 pt-6 border-t border-amber-200" data-stage="retry">
+      <div class="text-xs uppercase tracking-wider text-amber-700 font-semibold mb-2">Let's look at it another way</div>
+      <div class="md-body text-slate-700 leading-relaxed mb-4" set:html={retryHtml}></div>
+      <div class="cfu-options space-y-2">
+        {(retryOptions ?? []).map((option, i) => (
+          <button type="button" class={optionClass} data-correct={i === retryCorrectIndex ? 'true' : 'false'}>{option}</button>
+        ))}
+      </div>
+    </div>
+  )}
+
+  <div class="cfu-result mt-4 hidden text-sm font-semibold" aria-live="polite"></div>
+  <button type="button" class="cfu-reset hidden mt-3 px-4 py-2 text-sm font-semibold rounded-md bg-slate-900 text-white hover:bg-slate-700">Try the check again</button>
 </div>
+
 <script>
   const PREFIX = 'bible:';
-  function saveMastery(slug, level) {
+
+  function saveMastery(slug: string, level: number) {
     if (!slug) return;
     try {
       const raw = localStorage.getItem(PREFIX + 'mastery');
@@ -42,31 +76,100 @@ const dataLevel = level ?? 1;
     } catch {}
   }
 
-  document.addEventListener('click', (e) => {
-    const target = e.target;
-    if (!target.classList.contains('cfu-option')) return;
-    const cfu = target.closest('.cfu');
-    if (!cfu) return;
-    const isCorrect = target.dataset.correct === 'true';
-    const result = cfu.querySelector('.cfu-result');
-    cfu.querySelectorAll('.cfu-option').forEach((btn) => {
+  function shuffle(container: Element) {
+    const items = Array.from(container.children);
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+    items.forEach((el) => container.appendChild(el));
+  }
+
+  function resetStage(stage: Element) {
+    stage.querySelectorAll<HTMLButtonElement>('.cfu-option').forEach((btn) => {
+      btn.disabled = false;
+      btn.classList.remove('bg-green-100', 'border-green-500', 'bg-red-100', 'border-red-500', 'opacity-60');
+      btn.classList.add('bg-white');
+    });
+    const opts = stage.querySelector('.cfu-options');
+    if (opts) shuffle(opts);
+  }
+
+  function lockStage(stage: Element) {
+    stage.querySelectorAll<HTMLButtonElement>('.cfu-option').forEach((btn) => {
       btn.disabled = true;
       btn.classList.remove('bg-white');
     });
-    if (isCorrect) {
-      target.classList.add('bg-green-100', 'border-green-500');
-      result.textContent = 'Correct. Next level unlocked.';
-      result.className = 'cfu-result mt-4 text-sm font-semibold text-green-700';
-      const slug = cfu.dataset.slug || '';
-      const level = parseInt(cfu.dataset.level || '1', 10);
-      saveMastery(slug, level);
-    } else {
-      target.classList.add('bg-red-100', 'border-red-500');
-      cfu.querySelectorAll('.cfu-option').forEach((btn) => {
-        if (btn.dataset.correct === 'true') btn.classList.add('bg-green-100', 'border-green-500');
-      });
-      result.textContent = 'Not quite. Correct answer shown in green.';
-      result.className = 'cfu-result mt-4 text-sm font-semibold text-red-700';
+  }
+
+  function setResult(cfu: Element, text: string, tone: 'good' | 'bad' | 'info') {
+    const result = cfu.querySelector('.cfu-result') as HTMLElement;
+    const color = tone === 'good' ? 'text-green-700' : tone === 'bad' ? 'text-red-700' : 'text-slate-700';
+    result.textContent = text;
+    result.className = `cfu-result mt-4 text-sm font-semibold ${color}`;
+  }
+
+  function resetCfu(cfu: Element) {
+    cfu.querySelectorAll('.cfu-stage').forEach((stage) => {
+      resetStage(stage);
+      if ((stage as HTMLElement).dataset.stage === 'retry') stage.classList.add('hidden');
+    });
+    (cfu.querySelector('.cfu-result') as HTMLElement).className = 'cfu-result mt-4 hidden text-sm font-semibold';
+    cfu.querySelector('.cfu-reset')?.classList.add('hidden');
+  }
+
+  // Shuffle every check on page load.
+  document.querySelectorAll('.cfu .cfu-options').forEach(shuffle);
+
+  document.addEventListener('click', (e) => {
+    const el = e.target as HTMLElement;
+    const cfu = el.closest('.cfu');
+    if (!cfu) return;
+
+    if (el.closest('.cfu-reset')) {
+      resetCfu(cfu);
+      cfu.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
     }
+
+    const btn = el.closest('.cfu-option') as HTMLButtonElement | null;
+    if (!btn || btn.disabled) return;
+    const stage = btn.closest('.cfu-stage') as HTMLElement;
+    const isRetryStage = stage.dataset.stage === 'retry';
+    const isCorrect = btn.dataset.correct === 'true';
+    lockStage(stage);
+
+    if (isCorrect) {
+      btn.classList.add('bg-green-100', 'border-green-500');
+      setResult(cfu, isRetryStage ? 'That’s it. You worked it out — next level unlocked.' : 'Correct. Next level unlocked.', 'good');
+      const c = cfu as HTMLElement;
+      saveMastery(c.dataset.slug || '', parseInt(c.dataset.level || '1', 10));
+      return;
+    }
+
+    btn.classList.add('bg-red-100', 'border-red-500');
+    const retry = cfu.querySelector('.cfu-stage[data-stage="retry"]');
+
+    if (!isRetryStage && retry) {
+      // First miss with an authored re-teach: show it.
+      setResult(cfu, 'Not quite. Read this, then try the question below.', 'info');
+      retry.classList.remove('hidden');
+      retry.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (!isRetryStage) {
+      // First miss, no authored re-teach: don't give the answer away.
+      setResult(cfu, 'Not quite. Go back over this level, then take the check again.', 'info');
+      cfu.querySelector('.cfu-reset')?.classList.remove('hidden');
+      return;
+    }
+
+    // Missed the re-teach question too: now show the answer and allow a reset.
+    stage.querySelectorAll<HTMLButtonElement>('.cfu-option').forEach((b) => {
+      if (b.dataset.correct === 'true') b.classList.add('bg-green-100', 'border-green-500');
+    });
+    setResult(cfu, 'The right answer is shown in green. Re-read the level and take the check again.', 'bad');
+    cfu.querySelector('.cfu-reset')?.classList.remove('hidden');
   });
 </script>

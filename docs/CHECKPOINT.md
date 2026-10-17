@@ -6,7 +6,7 @@
 
 ## Live Site
 
-https://coachmalcolmonline-lgtm.github.io/strength-bible/
+https://coachmalcolm.github.io/strength-bible/
 
 ## Current State
 
