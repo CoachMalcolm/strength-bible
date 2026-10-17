@@ -4,7 +4,7 @@
 **Owner:** Coach Malcolm (GitHub: `CoachMalcolm`)
 **Repo:** https://github.com/CoachMalcolm/strength-bible
 **Live site:** https://coachmalcolm.github.io/strength-bible/
-**Last updated:** 2026-10-17
+**Last updated:** 2026-10-17 (evening)
 
 > Refresh this file at the end of every work session. Never put passwords, API keys or coach keys in it — the repo is public.
 
@@ -32,6 +32,7 @@ Core ideas:
 2. Push → **Build check** workflow (`.github/workflows/check.yml`) runs: Node 22, `npm ci`, timer engine tests, `astro build`, page checks (`scripts/verify-build.mjs`), browser smoke test with Playwright (`scripts/smoke-test.mjs`).
 3. Green → merge to `main` → **Deploy** workflow (`deploy.yml`) publishes to GitHub Pages.
 4. Results appear as annotations on the check run (max 10 notices per step are shown; the step's pass/fail is authoritative).
+5. **Site audit** (`.github/workflows/audit.yml`, runs on `jamie-review` and `audit/**` branches): visits every page at 390px, checks links, script errors, raw formatting and overflow, takes screenshots of key pages, and force-pushes `report.md` + `screens/` to the `audit-reports` branch. Read it with `git fetch origin +audit-reports:refs/remotes/origin/audit-reports` then `git show origin/audit-reports:report.md`.
 
 The Claude cloud workspace cannot reach the npm registry, so builds/tests that need packages run on GitHub, not locally. `node --experimental-strip-types scripts/test-timer.ts` runs locally (no packages needed).
 
@@ -48,7 +49,9 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 | `src/components/GlossaryCard.astro` | Pop-up definition card, "I know this / Still learning" |
 | `src/components/MiniTimer.astro` | Draggable mini timer on every page while a timer runs |
 | `src/lib/markdown.ts` | Renders frontmatter Markdown; applies glossary highlighting |
-| `src/lib/glossary.ts` | rehype plugin: highlights first occurrence of each term per block |
+| `src/lib/glossary-core.mjs` | Glossary highlighter (rehype plugin), shared by `markdown.ts` and `astro.config.mjs` |
+| `src/lib/glossary.ts` | Builds the matcher from the glossary collection; pop-up card data |
+| `src/pages/guide/[slug].astro` | "Start here" pages from `src/content/front-matter` |
 | `src/lib/storage.ts` | Older localStorage helpers (mastery, stories, journal, export/import) |
 | `src/lib/timer/model.ts` | Timer data model (same format as The Program), presets, durations |
 | `src/lib/timer/engine.ts` | Clock-based timer engine (deadlines, catch-up, cues, snapshot/restore) |
@@ -58,7 +61,7 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 | `src/lib/timer/store.ts` | Saved timers + share links (`#t=` base64url JSON) |
 | `src/pages/timer/` | `index` (library), `edit` (builder), `run` (full-screen player) |
 | `src/pages/glossary/` | A–Z list with filters; per-term pages with "where you'll see it" |
-| `scripts/` | `test-timer.ts`, `verify-build.mjs`, `smoke-test.mjs`, `checkpoint.sh` (old) |
+| `scripts/` | `test-timer.ts`, `verify-build.mjs`, `smoke-test.mjs`, `site-audit.mjs`, `checkpoint.sh` (old) |
 | `docs/handoff/` | These four handoff docs |
 
 ### localStorage keys (all prefixed `bible:`)
@@ -86,6 +89,19 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 - **Ducking:** sets `navigator.audioSession.type = 'transient'` where supported (newer Safari) so music is lowered, not paused. Elsewhere the phone decides.
 - Share links carry the whole timer; "Save to my timers" on open.
 
+**Review prep (for Jamie Paradis, product/design reviewer)**
+- "Start here" guide pages (`/guide/…`) for How to Use, Adaptive System, Living Journal, Safety — the content existed but was never displayed; linked from the top of the home page.
+- Program, story, journal and tracker pages render formatted text (`.md-body`); long fill-in lines wrap on phones.
+- Glossary highlighting on programs, stories, journal and guide pages.
+- Journal: date defaults to today; reflections refresh after saving; saved text escaped.
+- Network fits phones; tap once to select, again to open.
+- Review guide for Jamie: a Claude Doc ("Strength B.I.B.L.E. — Review Guide for Jamie") with walkthrough, product questions and a known-unfinished list.
+
+**Voices (on the back burner)**
+- Voice plan: Coach Malcolm (Standard, Hype, NSFW, Hype NSFW), Lucia (Standard, Hype), O'Shane (Jamerican), Southern male/female (standard + slang), English accent, LGBTQ+ voice, slang voice. Real people in their natural voices only; signed consent; explicit voices kept separate.
+- Each voice gets its own lines per "moment" (countdown, halfway, up next, rest, motivation…), several per moment, picked at random. Tracker spreadsheet: `BIBLE-Timer-Voices.xlsx` (Malcolm keeps it; may move to Google Sheets).
+- ElevenLabs: cloning needs a paid plan (Starter ~$6/mo, ~30k credits, commercial license). Subscribe only when the generator is built and recordings are collected.
+
 **Housekeeping**
 - README rewritten; `docs/build-spec.md` restored with corrections log; site URL fixed to `coachmalcolm.github.io`.
 - Security: The Program's coach key was exposed in its public README; Malcolm rotated it in both Apps Scripts, removed it from the README, and archived the old workout-tracker deployment.
@@ -93,6 +109,7 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 ## 6. Left to do
 
 **Next up**
+- Act on Jamie's review feedback.
 - Spanish (first additional language): i18n structure for UI strings + timer phrases; content structured per locale; AI-drafted translations reviewed by Malcolm's Spanish reviewer before publishing.
 - Custom voice: ElevenLabs Instant Voice Clone of Malcolm (he is creating the account). Pre-generate fixed cue phrases per language as audio files via a GitHub workflow using an `ELEVENLABS_API_KEY` repo secret. Custom interval names need a backend → fall back to device voice until then.
 

@@ -33,7 +33,9 @@ Keep the four handoff docs in docs/handoff/ up to date at the end of each work s
 
 Where we left off (Oct 17, 2026):
 - Shipped: CFU shuffle + re-teach, formatted level text, living glossary (49 draft terms), timer (builder, player, presets, share links), mini mode, pop-out (picture-in-picture), deliberate music ducking.
-- Next: Spanish (first additional language; I have a reviewer) and my cloned voice for timer cues via ElevenLabs (I'm setting up the account).
+- Also shipped: "Start here" guide pages, formatted program/journal/story pages, glossary on every page, journal fixes, phone-fit network, a site-audit workflow with screenshots.
+- Jamie Paradis (product/design) is reviewing with a guide doc. Next: act on her feedback, then Spanish (I have a reviewer).
+- Voices are on the back burner: multiple coach voices with their own lines, tracked in my voice spreadsheet.
 - Pending decision: backend for accounts/coaches (Supabase vs Firebase).
 
 [Add anything new here before pasting.]
