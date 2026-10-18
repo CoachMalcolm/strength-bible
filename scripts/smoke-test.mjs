@@ -186,12 +186,60 @@ try {
   check('Reflection panel updates right after saving', !/No entries yet|Log some sessions/.test(reflection || ''), (reflection || '').trim().slice(0, 80));
   await page.reload();
   check('Journal entry survives a reload', /Back Squat/.test((await page.textContent('.entries-content')) || ''));
+  await page.goto(`${BASE}/concepts/progressive-overload`);
+  const firstCellWidth = await page.evaluate(() => {
+    const c = document.querySelector('.md-body td');
+    if (!c) return 999;
+    const r = document.createRange(); r.selectNodeContents(c);
+    return r.getClientRects().length; // more than 1 line box = the word was broken across lines
+  });
+  check('Table words are not broken mid-word', firstCellWidth <= 1, `${firstCellWidth} line(s) in first cell`);
   for (const path of ['/journal/story-tracker', '/journal/mastery-tracker', '/programs/wendler-531', '/network']) {
     await page.goto(`${BASE}${path}`);
     await page.waitForTimeout(300);
     const w = await page.evaluate(() => document.documentElement.scrollWidth);
     check(`${path} fits a phone screen`, w <= 392, `${w}px`);
   }
+
+  // ---- Tester tools ----
+  await page.goto(`${BASE}/concepts/progressive-overload?tools=on`);
+  await page.waitForTimeout(300);
+  check('Private link turns on tester tools (and is removed from the address)', (await page.isVisible('#dtPanel')) && !page.url().includes('tools='));
+  const visibleLevels = async () => page.locator('.level-section .level-content:not(.hidden)').count();
+  const realLevels = await visibleLevels();
+  await page.click('#dtNew');
+  await page.fill('#dtNewName', 'Smoke advanced');
+  await page.click('#dtPresets button[data-preset="advanced"]');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  const advLevels = await visibleLevels();
+  const pill = (await page.textContent('#dtPillText')) || (await page.textContent('#dtPanel .dt-profiles [aria-current="true"]')) || '';
+  check('Advanced test athlete sees every level', advLevels === 4 && realLevels < 4, `real ${realLevels}, advanced ${advLevels}`);
+  if (!(await page.isVisible('#dtPanel'))) await page.click('#dtPill');
+  await page.locator('#dtProfiles button', { hasText: 'My real progress' }).click();
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  check('Switching back restores real progress', (await visibleLevels()) === realLevels, `${await visibleLevels()} levels`);
+  if (!(await page.isVisible('#dtPanel'))) await page.click('#dtPill');
+  await page.locator('#dtPage button', { hasText: 'Pass next level' }).click();
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  check('"Pass next level" opens one more level', (await visibleLevels()) === realLevels + 1, `${await visibleLevels()} levels`);
+  if (!(await page.isVisible('#dtPanel'))) await page.click('#dtPill');
+  await page.click('.dt-seg button[data-role="developer"]');
+  await page.check('#dtAnswers');
+  const marked = await page.evaluate(() => document.documentElement.classList.contains('dt-answers') &&
+    getComputedStyle(document.querySelector('.cfu-option[data-correct="true"]')).outlineStyle === 'dashed');
+  check('Developer view marks CFU answers', marked);
+  const src = await page.textContent('#dtSource code');
+  check('Developer view shows the page\'s source file', src === 'src/content/concepts/progressive-overload.md', src);
+  await page.click('.dt-seg button[data-role="user"]');
+  check('User view hides the panel, leaving only the small button', !(await page.isVisible('#dtPanel')) && (await page.isVisible('#dtPill')));
+  await page.click('#dtPill');
+  await page.click('#dtOff');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  check('Turning tools off hides them', !(await page.isVisible('#devtools')));
 
   check('No JavaScript errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 } catch (e) {

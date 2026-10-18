@@ -1,0 +1,389 @@
+---
+/**
+ * Tester tools. Hidden unless turned on with ?tools=on (off: ?tools=off).
+ * Roles: User (see exactly what athletes see), Tester (switch test athletes,
+ * change progress on the page), Developer (also: answers, drafts, source files).
+ * Hides the tools from normal visitors; it is not security.
+ */
+import { getCollection } from 'astro:content';
+
+const base = import.meta.env.BASE_URL;
+const leveledCols = [
+  ['concepts', 'Concept'], ['lifts', 'Lift'], ['bodyweight', 'Bodyweight'], ['mobility', 'Mobility'],
+] as const;
+const leveled = [];
+for (const [col, section] of leveledCols) {
+  for (const item of await getCollection(col)) {
+    const levels = (item.data.levels ?? []).length;
+    if (levels) leveled.push({ path: `/${col}/${item.slug}`, slug: item.slug, title: item.data.title, levels, section });
+  }
+}
+const glossary = (await getCollection('glossary')).map((g) => ({ slug: g.slug, status: g.data.status }));
+const stories = (await getCollection('stories')).map((s) => s.slug);
+const logs = (await getCollection('journal')).filter((j) => j.data.type === 'program-log' || j.data.type === 'template').map((j) => j.slug);
+const siteData = { leveled, glossary, stories, logs };
+const repo = 'https://github.com/CoachMalcolm/strength-bible';
+---
+<div id="devtools" class="dt hidden" data-base={base} data-repo={repo}>
+  <button type="button" id="dtPill" class="dt-pill" aria-expanded="false" aria-controls="dtPanel">
+    <span aria-hidden="true">🧪</span> <span id="dtPillText">Tester tools</span>
+  </button>
+
+  <section id="dtPanel" class="dt-panel hidden" aria-label="Tester tools">
+    <header class="dt-head">
+      <strong>🧪 Tester tools</strong>
+      <button type="button" id="dtClose" class="dt-x" aria-label="Close">&times;</button>
+    </header>
+
+    <div class="dt-section">
+      <div class="dt-label">View as</div>
+      <div class="dt-seg" role="group" aria-label="Role">
+        <button type="button" data-role="user">User</button>
+        <button type="button" data-role="tester">Tester</button>
+        <button type="button" data-role="developer">Developer</button>
+      </div>
+      <p id="dtRoleNote" class="dt-note"></p>
+    </div>
+
+    <div class="dt-section dt-only-tester">
+      <div class="dt-label">Test athlete</div>
+      <ul id="dtProfiles" class="dt-profiles"></ul>
+      <div class="dt-row">
+        <button type="button" id="dtNew" class="dt-btn dt-btn-primary">+ New athlete</button>
+        <button type="button" id="dtCopy" class="dt-btn">Save a copy</button>
+      </div>
+      <div class="dt-row">
+        <button type="button" id="dtRename" class="dt-btn">Rename</button>
+        <button type="button" id="dtReset" class="dt-btn">Reset to brand new</button>
+        <button type="button" id="dtDelete" class="dt-btn dt-btn-danger">Delete</button>
+      </div>
+      <div id="dtNewForm" class="dt-form hidden">
+        <label class="dt-label" for="dtNewName">Name</label>
+        <input id="dtNewName" class="dt-input" maxlength="40" placeholder="e.g. Jamie's run" />
+        <div class="dt-label">Start as</div>
+        <div id="dtPresets" class="dt-presets"></div>
+      </div>
+    </div>
+
+    <div id="dtPage" class="dt-section dt-only-tester"></div>
+
+    <div class="dt-section dt-only-dev">
+      <div class="dt-label">Developer</div>
+      <label class="dt-check"><input type="checkbox" id="dtAnswers" /> Show CFU answers and re-teach text</label>
+      <label class="dt-check"><input type="checkbox" id="dtDrafts" /> Mark draft glossary definitions</label>
+      <div id="dtSource" class="dt-note"></div>
+    </div>
+
+    <div class="dt-section">
+      <div class="dt-label">Feedback</div>
+      <div class="dt-row">
+        <button type="button" id="dtFeedback" class="dt-btn dt-btn-primary">Email feedback on this page</button>
+        <button type="button" id="dtCopyInfo" class="dt-btn">Copy page details</button>
+      </div>
+    </div>
+
+    <footer class="dt-foot">
+      <p>Test athletes are saved in this browser only. Clearing site data or using a private window wipes them, and your phone and laptop keep separate sets.</p>
+      <button type="button" id="dtOff" class="dt-btn">Turn off tester tools</button>
+    </footer>
+  </section>
+</div>
+<script id="dtData" type="application/json" set:html={JSON.stringify(siteData)}></script>
+
+<style is:global>
+  .dt { position: fixed; z-index: 80; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 12px); font-family: Inter, system-ui, sans-serif; }
+  .dt.hidden, .dt .hidden { display: none !important; }
+  .dt-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 99px; border: 2px solid #7c3aed;
+             background: #f5f3ff; color: #4c1d95; font-size: 13px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,0.18); cursor: pointer; max-width: 70vw; }
+  .dt-pill span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dt-panel { position: fixed; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 8px); max-height: min(80vh, 680px); overflow-y: auto;
+              background: #fff; color: #0f172a; border: 2px solid #7c3aed; border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); }
+  @media (min-width: 640px) { .dt-panel { right: auto; width: 380px; left: 12px; } }
+  .dt-head { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #f5f3ff; border-bottom: 1px solid #ddd6fe; color: #4c1d95; }
+  .dt-x { border: 0; background: none; font-size: 24px; line-height: 1; color: #6d28d9; cursor: pointer; }
+  .dt-section { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
+  .dt-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 6px; }
+  .dt-note { font-size: 12px; color: #475569; margin-top: 6px; line-height: 1.45; }
+  .dt-seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #c4b5fd; border-radius: 10px; overflow: hidden; }
+  .dt-seg button { padding: 8px 4px; border: 0; background: #fff; font-size: 13px; font-weight: 600; color: #4c1d95; cursor: pointer; }
+  .dt-seg button + button { border-left: 1px solid #c4b5fd; }
+  .dt-seg button[aria-pressed="true"] { background: #7c3aed; color: #fff; }
+  .dt-profiles { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+  .dt-profiles button { width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  .dt-profiles button[aria-current="true"] { border-color: #7c3aed; background: #f5f3ff; font-weight: 700; }
+  .dt-profiles small { color: #64748b; font-weight: 400; }
+  .dt-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .dt-btn { padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 13px; font-weight: 600; color: #0f172a; cursor: pointer; }
+  .dt-btn:disabled { opacity: 0.4; cursor: default; }
+  .dt-btn-primary { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+  .dt-btn-danger { color: #b91c1c; }
+  .dt-form { margin-top: 10px; padding: 10px; background: #f8fafc; border-radius: 10px; }
+  .dt-input { width: 100%; padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; margin-bottom: 8px; box-sizing: border-box; }
+  .dt-presets { display: grid; gap: 6px; }
+  .dt-presets button { text-align: left; padding: 8px 10px; border: 1px solid #c4b5fd; border-radius: 8px; background: #fff; cursor: pointer; font-size: 13px; }
+  .dt-presets small { display: block; color: #64748b; font-size: 12px; margin-top: 2px; }
+  .dt-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin: 6px 0; }
+  .dt-check input { margin-top: 2px; accent-color: #7c3aed; }
+  .dt-foot { padding: 12px 14px; font-size: 12px; color: #64748b; }
+  .dt-foot p { margin: 0 0 8px; }
+  .dt-role-user .dt-only-tester, .dt-role-user .dt-only-dev, .dt-role-tester .dt-only-dev { display: none; }
+  .dt-meter { display: flex; gap: 4px; margin: 4px 0 2px; }
+  .dt-meter span { flex: 1; height: 6px; border-radius: 99px; background: #e2e8f0; }
+  .dt-meter span.on { background: #7c3aed; }
+
+  /* Developer overlays */
+  html.dt-answers .cfu-option[data-correct="true"] { outline: 3px dashed #7c3aed; outline-offset: 2px; }
+  html.dt-answers .cfu-option[data-correct="true"]::after { content: "  ✓ answer"; font-size: 12px; font-weight: 700; color: #7c3aed; }
+  html.dt-answers .cfu-stage[data-stage="retry"] { display: block !important; outline: 2px dashed #c4b5fd; outline-offset: 6px; border-radius: 4px; }
+  html.dt-answers .cfu-stage[data-stage="retry"]::before { content: "Re-teach (shown for developers)"; display: block; font-size: 11px; font-weight: 700; color: #7c3aed; text-transform: uppercase; margin-bottom: 6px; }
+  html.dt-drafts .gloss-term.dt-draft { text-decoration-color: #7c3aed !important; text-decoration-style: wavy !important; }
+  html.dt-drafts .gloss-term.dt-draft::after { content: "draft"; font-size: 9px; font-weight: 700; vertical-align: super; color: #7c3aed; margin-left: 1px; }
+</style>
+
+<script>
+  import {
+    getSettings, setSettings, listProfiles, switchTo, enable, disable, createProfile, duplicateActive,
+    renameProfile, deleteProfile, resetActive, buildPreset, PRESETS, setMastery, clearTerms, sourceFor, saveActive,
+    REAL_ID, type Role, type SiteData,
+  } from '../lib/devtools';
+
+  const root = document.getElementById('devtools') as HTMLElement;
+  const base = root.dataset.base || '';
+  const repo = root.dataset.repo || '';
+  const site: SiteData = JSON.parse(document.getElementById('dtData')?.textContent || '{}');
+  const $ = (id: string) => document.getElementById(id) as HTMLElement;
+  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
+    const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e;
+  };
+
+  // ---------- Turning on / off with the private link ----------
+  const params = new URLSearchParams(location.search);
+  const flag = params.get('tools');
+  if (flag === 'on') {
+    enable();
+    setSettings({ open: true });
+  } else if (flag === 'off') {
+    const wasOn = getSettings().enabled;
+    disable();
+    if (wasOn) { params.delete('tools'); location.replace(location.pathname + (params.toString() ? '?' + params : '') + location.hash); }
+  }
+  if (flag) {
+    params.delete('tools');
+    history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : '') + location.hash);
+  }
+
+  const settings = () => getSettings();
+  const reload = () => location.reload();
+
+  // ---------- Paint ----------
+  const ROLE_NOTES: Record<Role, string> = {
+    user: 'You see exactly what an athlete sees. Only this small button stays on screen.',
+    tester: 'Switch test athletes and change progress on any page to check how it responds.',
+    developer: 'Everything testers have, plus CFU answers, draft content and where each page lives in the code.',
+  };
+
+  function activeProfile() {
+    return listProfiles().find((p) => p.id === settings().active) || listProfiles()[0];
+  }
+
+  function paint() {
+    const s = settings();
+    if (!s.enabled) { root.classList.add('hidden'); document.documentElement.classList.remove('dt-answers', 'dt-drafts'); return; }
+    root.classList.remove('hidden');
+    root.className = `dt dt-role-${s.role}`;
+    $('dtPanel').classList.toggle('hidden', !s.open);
+    $('dtPill').setAttribute('aria-expanded', String(s.open));
+    $('dtPill').classList.toggle('hidden', s.open);
+    $('dtPillText').textContent = `${s.role === 'user' ? 'User view' : s.role === 'developer' ? 'Developer' : 'Tester'} · ${activeProfile().name}`;
+    root.querySelectorAll<HTMLElement>('.dt-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.role === s.role)));
+    $('dtRoleNote').textContent = ROLE_NOTES[s.role];
+    paintProfiles();
+    paintPage();
+    paintDev();
+  }
+
+  function paintProfiles() {
+    const list = $('dtProfiles');
+    list.innerHTML = '';
+    const s = settings();
+    for (const p of listProfiles()) {
+      const li = el('li');
+      const b = el('button');
+      b.type = 'button';
+      b.setAttribute('aria-current', String(p.id === s.active));
+      b.append(el('span', '', p.name), el('small', '', p.id === REAL_ID ? 'yours' : p.id === s.active ? 'active' : 'switch'));
+      b.addEventListener('click', () => { if (p.id !== s.active) { switchTo(p.id); reload(); } });
+      li.appendChild(b);
+      list.appendChild(li);
+    }
+    const isReal = s.active === REAL_ID;
+    ($('dtReset') as HTMLButtonElement).disabled = isReal;
+    ($('dtDelete') as HTMLButtonElement).disabled = isReal;
+    ($('dtRename') as HTMLButtonElement).disabled = isReal;
+  }
+
+  function readMastery(): Record<string, number> {
+    try { return JSON.parse(localStorage.getItem('bible:mastery') || '{}'); } catch { return {}; }
+  }
+
+  function paintPage() {
+    const box = $('dtPage');
+    box.innerHTML = '';
+    box.appendChild(el('div', 'dt-label', 'This page'));
+    const sections = document.querySelectorAll<HTMLElement>('.level-section');
+    const slug = sections[0]?.dataset.slug;
+    let any = false;
+    if (slug) {
+      any = true;
+      const total = sections.length;
+      const passed = Math.min(total, readMastery()[slug] ?? 0);
+      const meter = el('div', 'dt-meter');
+      for (let i = 1; i <= total; i++) { const s = el('span'); if (i <= passed) s.classList.add('on'); meter.appendChild(s); }
+      box.append(el('div', 'dt-note', `Levels passed: ${passed} of ${total}. Level ${Math.min(total, passed + 1)} is ${passed >= total ? 'done — all open' : 'the next one open'}.`), meter);
+      const row = el('div', 'dt-row');
+      const mk = (label: string, fn: () => void, disabled = false) => {
+        const b = el('button', 'dt-btn', label); b.type = 'button'; (b as HTMLButtonElement).disabled = disabled;
+        b.addEventListener('click', () => { fn(); saveActive(); reload(); }); return b;
+      };
+      row.append(
+        mk('Pass next level', () => setMastery(slug, passed + 1), passed >= total),
+        mk('Unlock all levels', () => setMastery(slug, total), passed >= total),
+        mk('Lock back to Level 1', () => setMastery(slug, 0), passed === 0),
+      );
+      box.appendChild(row);
+    }
+    const form = document.querySelector<HTMLElement>('.journal-form');
+    if (form) {
+      any = true;
+      const row = el('div', 'dt-row');
+      const b = el('button', 'dt-btn', 'Add 4 sample sessions to this log');
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        const tpl = form.dataset.templateSlug || '';
+        const sample = JSON.parse(buildPreset('midway', { ...site, logs: [tpl] })['bible:journal'] || '[]');
+        let all: any[] = [];
+        try { all = JSON.parse(localStorage.getItem('bible:journal') || '[]'); } catch {}
+        const stamp = Date.now().toString(36);
+        localStorage.setItem('bible:journal', JSON.stringify([...all, ...sample.map((e: any) => ({ ...e, id: e.id + stamp, templateSlug: tpl }))]));
+        saveActive(); reload();
+      });
+      row.appendChild(b);
+      box.appendChild(row);
+    }
+    if (document.querySelector('.gloss-term') || location.pathname.includes('/glossary')) {
+      any = true;
+      const row = el('div', 'dt-row');
+      const b = el('button', 'dt-btn', 'Clear all glossary marks');
+      b.type = 'button';
+      b.addEventListener('click', () => { clearTerms(); saveActive(); reload(); });
+      row.appendChild(b);
+      box.appendChild(row);
+    }
+    if (!any) box.appendChild(el('div', 'dt-note', 'Nothing on this page changes with progress.'));
+  }
+
+  function paintDev() {
+    const s = settings();
+    const dev = s.enabled && s.role === 'developer';
+    ($('dtAnswers') as HTMLInputElement).checked = s.showAnswers;
+    ($('dtDrafts') as HTMLInputElement).checked = s.showDrafts;
+    document.documentElement.classList.toggle('dt-answers', dev && s.showAnswers);
+    document.documentElement.classList.toggle('dt-drafts', dev && s.showDrafts);
+    const drafts = new Set(site.glossary.filter((g) => g.status !== 'final').map((g) => g.slug));
+    document.querySelectorAll<HTMLElement>('.gloss-term').forEach((t) => t.classList.toggle('dt-draft', drafts.has(t.dataset.gloss || '')));
+    const src = sourceFor(location.pathname, base);
+    const box = $('dtSource');
+    box.innerHTML = '';
+    if (src) {
+      box.append(el('div', '', 'This page comes from:'), el('code', '', src));
+      const a = el('a', '', ' Edit on GitHub ↗');
+      (a as HTMLAnchorElement).href = `${repo}/edit/main/${src}`;
+      (a as HTMLAnchorElement).target = '_blank';
+      (a as HTMLAnchorElement).rel = 'noopener';
+      a.style.color = '#6d28d9';
+      a.style.fontWeight = '600';
+      box.appendChild(a);
+    }
+  }
+
+  // ---------- Feedback ----------
+  function pageDetails() {
+    const s = settings();
+    const slug = document.querySelector<HTMLElement>('.level-section')?.dataset.slug;
+    const lines = [
+      `Page: ${location.href}`,
+      `Title: ${document.title}`,
+      `Viewing as: ${s.role} · test athlete "${activeProfile().name}"`,
+      slug ? `Levels passed on this page: ${readMastery()[slug] ?? 0}` : '',
+      `Screen: ${window.innerWidth}×${window.innerHeight}`,
+      `Device: ${navigator.userAgent}`,
+    ].filter(Boolean);
+    return lines.join('\n');
+  }
+  $('dtFeedback').addEventListener('click', () => {
+    const subject = `B.I.B.L.E. feedback: ${document.title.replace(/ — The Strength B\.I\.B\.L\.E\.$/, '')}`;
+    const body = `What I noticed:\n\n\n\nWhat I expected:\n\n\n\n---\n${pageDetails()}`;
+    location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  });
+  $('dtCopyInfo').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(pageDetails()); $('dtCopyInfo').textContent = 'Copied ✓'; }
+    catch { prompt('Copy these details:', pageDetails()); }
+  });
+
+  // ---------- Wiring ----------
+  $('dtPill').addEventListener('click', () => { setSettings({ open: true }); paint(); });
+  $('dtClose').addEventListener('click', () => { setSettings({ open: false }); paint(); });
+  root.querySelectorAll<HTMLElement>('.dt-seg button').forEach((b) =>
+    b.addEventListener('click', () => { setSettings({ role: b.dataset.role as Role, ...(b.dataset.role === 'user' ? { open: false } : {}) }); paint(); }));
+  $('dtAnswers').addEventListener('change', (e) => { setSettings({ showAnswers: (e.target as HTMLInputElement).checked }); paintDev(); });
+  $('dtDrafts').addEventListener('change', (e) => { setSettings({ showDrafts: (e.target as HTMLInputElement).checked }); paintDev(); });
+
+  // New athlete from a preset
+  const presetBox = $('dtPresets');
+  for (const p of PRESETS) {
+    const b = el('button');
+    b.type = 'button';
+    b.dataset.preset = p.id;
+    b.append(el('strong', '', p.name), el('small', '', p.blurb));
+    b.addEventListener('click', () => {
+      const name = ($('dtNewName') as HTMLInputElement).value.trim() || p.name;
+      const prof = createProfile(name, buildPreset(p.id, site), p.id);
+      switchTo(prof.id);
+      reload();
+    });
+    presetBox.appendChild(b);
+  }
+  $('dtNew').addEventListener('click', () => { $('dtNewForm').classList.toggle('hidden'); ($('dtNewName') as HTMLInputElement).focus(); });
+  $('dtCopy').addEventListener('click', () => {
+    const name = prompt('Name this saved copy (e.g. "Right before Wendler unlocks"):', `${activeProfile().name} (copy)`);
+    if (name === null) return;
+    const p = duplicateActive(name);
+    switchTo(p.id);
+    reload();
+  });
+  $('dtRename').addEventListener('click', () => {
+    const p = activeProfile();
+    const name = prompt('New name:', p.name);
+    if (name) { renameProfile(p.id, name); paint(); }
+  });
+  $('dtReset').addEventListener('click', () => {
+    if (!confirm(`Reset "${activeProfile().name}" to brand new? Its progress will be erased.`)) return;
+    if (resetActive()) reload();
+  });
+  $('dtDelete').addEventListener('click', () => {
+    if (!confirm(`Delete test athlete "${activeProfile().name}"?`)) return;
+    deleteProfile(settings().active);
+    reload();
+  });
+  $('dtOff').addEventListener('click', () => {
+    if (!confirm('Turn off tester tools? Your real progress comes back. Test athletes are kept for next time.')) return;
+    disable();
+    reload();
+  });
+
+  // Keep the active athlete's saved copy current as you use the site.
+  window.addEventListener('pagehide', () => { if (settings().enabled) saveActive(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && settings().enabled) saveActive(); });
+
+  paint();
+</script>

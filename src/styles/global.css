@@ -12,7 +12,7 @@ body {
 
 /* Formatted Markdown inside levels and re-teach explanations */
 @layer components {
-  .md-body { overflow-wrap: anywhere; }
+  .md-body { overflow-wrap: break-word; }
   .md-body > * + * { @apply mt-4; }
   /* The page header already shows the title. */
   .md-body > h1:first-child { display: none; }

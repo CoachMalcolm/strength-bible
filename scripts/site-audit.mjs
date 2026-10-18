@@ -91,6 +91,33 @@ for (const p of paths) {
   results.push({ path: p, status, errors, failed, ...info });
   await page.close();
 }
+// ---- Tester tools screenshots ----
+try {
+  const t = await ctx.newPage();
+  t.on('dialog', (d) => d.accept());
+  const shot = (name, full = false) => t.screenshot({ path: `audit/screens/${name}.jpg`, type: 'jpeg', quality: 55, fullPage: full });
+  await t.goto(BASE + '/concepts/progressive-overload/?tools=on', { waitUntil: 'networkidle' });
+  await t.waitForTimeout(300);
+  await shot('tools-panel');
+  await t.click('#dtNew');
+  await t.waitForTimeout(150);
+  await shot('tools-new-athlete');
+  await t.click('#dtPresets button[data-preset="midway"]');
+  await t.waitForLoadState('networkidle');
+  await t.waitForTimeout(300);
+  if (await t.isVisible('#dtClose')) await t.click('#dtClose');
+  await shot('tools-midway-page', true);
+  await t.click('#dtPill');
+  await t.click('.dt-seg button[data-role="developer"]');
+  await t.check('#dtAnswers');
+  await t.check('#dtDrafts');
+  await shot('tools-developer-panel');
+  await t.click('#dtClose');
+  await t.waitForTimeout(150);
+  await shot('tools-developer-page', true);
+  await t.close();
+} catch (e) { console.log('tools screenshots failed: ' + e); }
+
 await browser.close();
 
 // ---- Report ----

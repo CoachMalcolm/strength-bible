@@ -24,6 +24,8 @@ jobs:
         run: npm ci
       - name: Timer engine tests
         run: node --experimental-strip-types --no-warnings scripts/test-timer.ts
+      - name: Tester tools tests
+        run: node --experimental-strip-types --no-warnings scripts/test-devtools.ts
       - name: Build
         run: npm run build
       - name: Verify built pages
