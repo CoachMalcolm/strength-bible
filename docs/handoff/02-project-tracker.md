@@ -26,6 +26,8 @@ Down the road, coaches and programs will be able to use it with their own athlet
   - **Pop out:** float the timer over other apps (texts, music) on phones that allow it.
   - **Share:** send a timer to an athlete as a link.
 
+- **Tester tools** for Malcolm, Jamie and anyone helping test: a private link adds a toolbar to view the site as a user, tester or developer, switch between test athletes (brand new, halfway, advanced) that each remember their own progress, and send feedback from any page.
+
 **In review:**
 - **Jamie Paradis** (product and design) is reviewing the whole experience with a guided walkthrough.
 

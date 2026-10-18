@@ -37,12 +37,14 @@ Astro 4 (static), Tailwind 3, TypeScript in Astro `<script>` blocks. No backend 
 7. **Escape user-provided text.** Timer names and notes can arrive via share links; render with `textContent`, never `innerHTML`.
 8. **Phones first.** Test layouts at ~390px wide. Sound, vibration and wake lock need a real device — say so rather than claiming they work.
 9. **Glossary definitions and translations are drafts until a human approves them.** Mark AI-written content `status: "draft"` (or the equivalent) and tell the owner.
-10. **Update the four handoff docs in `docs/handoff/`** when you finish a piece of work: 01 (technical status), 02 (plain-language tracker, shareable), 03 (restart prompt for Claude), 04 (this file).
+10. **Save progress under `bible:` keys only, and tool settings under `bibledev:` only.** The tester tools swap every `bible:` key when switching test athletes; that is what makes new features testable without extra work.
+11. **Update the four handoff docs in `docs/handoff/`** when you finish a piece of work: 01 (technical status), 02 (plain-language tracker, shareable), 03 (restart prompt for Claude), 04 (this file).
 
 ## Key mechanics to understand before editing
 
 - **Leveled pages:** `ContentDetail.astro` → `LevelBlock.astro` → `CFU.astro`. Level bodies are Markdown rendered by `src/lib/markdown.ts`, which also runs the glossary highlighter (`src/lib/glossary.ts`, a rehype plugin). Mastery is `bible:mastery[slug] = highest level passed`; levels above `mastery + 1` are hidden.
 - **Glossary:** highlights the first occurrence of each term per rendered block at build time; the pop-up card (`GlossaryCard.astro`) is in `BaseLayout`. Status lives in `bible:terms`.
+- **Tester tools:** `components/DevTools.astro` + `lib/devtools.ts`. Turned on per browser with `?tools=on`. Test athletes are snapshots of all `bible:` localStorage keys.
 - **Timer:** `model.ts` (format, presets) → `engine.ts` (wall-clock deadlines; `update()` catches up after sleep and skips stale cues; `snapshot()`/`restore()`) → `runner.ts` (one running session; plays cues; persists to `bible:timer-session` so the timer continues across pages) → UIs: `pages/timer/run.astro` (full player), `components/MiniTimer.astro` (draggable bubble on every page), `lib/timer/pip.ts` (picture-in-picture pop-out). `feedback.ts` holds beeps/speech/vibration/wake lock/ducking.
 
 ## Environment notes

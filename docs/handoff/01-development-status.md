@@ -48,6 +48,8 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 | `src/components/CFU.astro` | Shuffled answers; wrong → re-teach (`retry`) or re-read; mastery saved |
 | `src/components/GlossaryCard.astro` | Pop-up definition card, "I know this / Still learning" |
 | `src/components/MiniTimer.astro` | Draggable mini timer on every page while a timer runs |
+| `src/components/DevTools.astro` | Tester tools panel (roles, test athletes, page tools, developer view, feedback) |
+| `src/lib/devtools.ts` | Test-athlete storage: snapshots of all `bible:` keys, presets, swap on switch |
 | `src/lib/markdown.ts` | Renders frontmatter Markdown; applies glossary highlighting |
 | `src/lib/glossary-core.mjs` | Glossary highlighter (rehype plugin), shared by `markdown.ts` and `astro.config.mjs` |
 | `src/lib/glossary.ts` | Builds the matcher from the glossary collection; pop-up card data |
@@ -66,6 +68,7 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 
 ### localStorage keys (all prefixed `bible:`)
 `mastery` (slug → highest level passed), `stories` (opened, dates), `journal` (entries), `terms` (glossary status: seen/learning/known), `timers` (saved timers), `timer-options` (voice/beeps/vibrate), `timer-session` (the running timer).
+Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, `data:<id>`). Switching test athletes swaps **every** `bible:` key, so any new feature that saves progress under a `bible:` key works with test athletes automatically. Never store tool settings under `bible:`.
 
 ## 5. Done
 
@@ -97,6 +100,13 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 - Network fits phones; tap once to select, again to open.
 - Review guide for Jamie: a Claude Doc ("Strength B.I.B.L.E. — Review Guide for Jamie") with walkthrough, product questions and a known-unfinished list.
 
+**Tester tools** (turn on with `?tools=on`, off with `?tools=off`)
+- View as User / Tester / Developer. Test athletes with their own memory, started from Brand new / Halfway through / Advanced; save a copy, rename, reset, delete; real progress restored when turned off.
+- Page tools: pass next level, unlock all, lock to Level 1, add sample journal sessions, clear glossary marks.
+- Developer: CFU answers + re-teach text, draft glossary marks, source file + Edit on GitHub link.
+- Feedback: pre-filled email (no recipient set — sender chooses) or copy page details.
+- Hides tools from normal visitors; not security. Real roles come with logins.
+
 **Voices (on the back burner)**
 - Voice plan: Coach Malcolm (Standard, Hype, NSFW, Hype NSFW), Lucia (Standard, Hype), O'Shane (Jamerican), Southern male/female (standard + slang), English accent, LGBTQ+ voice, slang voice. Real people in their natural voices only; signed consent; explicit voices kept separate.
 - Each voice gets its own lines per "moment" (countdown, halfway, up next, rest, motivation…), several per moment, picked at random. Tracker spreadsheet: `BIBLE-Timer-Voices.xlsx` (Malcolm keeps it; may move to Google Sheets).
@@ -114,6 +124,7 @@ The Claude cloud workspace cannot reach the npm registry, so builds/tests that n
 - Custom voice: ElevenLabs Instant Voice Clone of Malcolm (he is creating the account). Pre-generate fixed cue phrases per language as audio files via a GitHub workflow using an `ELEVENLABS_API_KEY` repo secret. Custom interval names need a backend → fall back to device voice until then.
 
 **Backlog**
+- Real logins with roles (after Jamie's review): move the tester tools' roles into accounts.
 - Backend for accounts / coaches / programs (Supabase vs Firebase — decision pending). Must replace the Google-Sheets + PIN + shared-coach-key model; coaches will hold minors' data.
 - Highlight glossary terms in programs and stories (they render via Astro's Markdown pipeline, not `renderMarkdown`).
 - Enforce program prerequisites (listed in 24 programs, not enforced).
