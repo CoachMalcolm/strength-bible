@@ -11,7 +11,7 @@ export async function getStaticPaths() {
 
 const { item } = Astro.props;
 const { Content } = await item.render();
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const isTemplate = item.data.type === 'program-log' || item.data.type === 'template';
 ---
 

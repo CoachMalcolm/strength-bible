@@ -35,7 +35,7 @@ const levelNames = { 1: '8th Grade', 2: 'High School Senior', 3: 'College', 4: '
     {level.stories && level.stories.length > 0 && (
       <div class="mt-6 flex flex-wrap gap-3">
         {level.stories.map((story) => (
-          <a href={`${import.meta.env.BASE_URL}/stories/${story.id}`} class="story-link inline-flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-md text-sm text-slate-700 transition" data-story-id={story.id}>
+          <a href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/stories/${story.id}`} class="story-link inline-flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-md text-sm text-slate-700 transition" data-story-id={story.id}>
             <span>{story.icon}</span>
             <span>{story.title}</span>
             <span class="story-badge hidden text-xs px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded font-medium">revisit</span>

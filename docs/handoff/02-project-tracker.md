@@ -28,6 +28,10 @@ Down the road, coaches and programs will be able to use it with their own athlet
 
 - **Tester tools** for Malcolm and anyone helping test: a private link adds a toolbar to view the site as a user, tester or developer, switch between test athletes (brand new, halfway, advanced) that each remember their own progress, and send feedback from any page.
 
+**In progress now:**
+- **Moving the website to a new free home (Cloudflare)** and making the project files private. The website stays free and allows selling later. The site address will change; the new link will be shared when it's ready.
+- **Privacy:** people's names and email addresses have been removed from the project files. Helpers are referred to by role.
+
 **In review:**
 - **A product and design reviewer** is going through the whole experience with a guided walkthrough.
 
@@ -37,17 +41,19 @@ Down the road, coaches and programs will be able to use it with their own athlet
 
 ## What's next
 
-1. Act on the product and design review
-2. Spanish version of the site and timer
-3. Coach voices for the timer (English, then Spanish)
-4. Choosing the system for real accounts, so athletes keep their progress on any device and coaches can follow their athletes
-5. Bringing over the best features from Malcolm's earlier apps (workout logging, plate math, weekly training targets, check-ins)
-6. More content: more sports, nutrition, mindset, supplements and misinformation, life skills, videos
+1. Finish the move to the new address
+2. Act on the product and design review
+3. Spanish version of the site and timer
+4. Coach voices for the timer (English, then Spanish)
+5. Choosing the system for real accounts, so athletes keep their progress on any device and coaches can follow their athletes
+6. Bringing over the best features from Malcolm's earlier apps (workout logging, plate math, weekly training targets, check-ins)
+7. More content: more sports, nutrition, mindset, supplements and misinformation, life skills, videos
 
 ## Waiting on
 
 | What | Who |
 |---|---|
+| Create the free Cloudflare account | Malcolm |
 | Product and design review feedback | Product/design reviewer |
 | Voice recordings + signed permission from each friend | Malcolm |
 | Review the 49 glossary definitions (drafts) | Malcolm |

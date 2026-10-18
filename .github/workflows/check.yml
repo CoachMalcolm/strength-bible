@@ -37,3 +37,7 @@ jobs:
           npx astro preview --port 4321 > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:4321/strength-bible/ > /dev/null && break; sleep 1; done
           node scripts/smoke-test.mjs
+      - name: Build for the Cloudflare address (site at the root)
+        run: |
+          CF_PAGES=1 SITE_URL=https://strength-bible.pages.dev npm run build
+          node scripts/check-root-build.mjs

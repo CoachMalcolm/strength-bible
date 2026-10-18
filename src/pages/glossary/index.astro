@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 const entries = (await getCollection('glossary')).sort((a, b) => a.data.term.localeCompare(b.data.term));
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const letters = [...new Set(entries.map((e) => e.data.term[0].toUpperCase()))];
 ---
 <BaseLayout title="Glossary">

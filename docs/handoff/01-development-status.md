@@ -22,7 +22,8 @@ Core ideas:
 ## 2. Stack
 
 - **Astro 4** static site + **Tailwind 3**, TypeScript in `<script>` tags (bundled by Astro).
-- Hosted on **GitHub Pages** at base path `/strength-bible`.
+- Hosted on **GitHub Pages** at base path `/strength-bible` — **moving to Cloudflare Pages** (see "Hosting move" below).
+- The site address is never hard-coded: pages use `const base = import.meta.env.BASE_URL.replace(/\/$/, "")` and build links as `${base}/path`. `astro.config.mjs` sets `base` to `/strength-bible` on GitHub and `/` on Cloudflare (`CF_PAGES=1`).
 - **No backend yet.** All athlete data is per-browser in `localStorage`.
 - Content is Markdown + YAML frontmatter in `src/content/<collection>/`, schemas in `src/content/config.ts`.
 
@@ -112,6 +113,17 @@ Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, 
 - Each voice gets its own lines per "moment" (countdown, halfway, up next, rest, motivation…), several per moment, picked at random. Tracker spreadsheet: `BIBLE-Timer-Voices.xlsx` (Malcolm keeps it; may move to Google Sheets).
 - ElevenLabs: cloning needs a paid plan (Starter ~$6/mo, ~30k credits, commercial license). Subscribe only when the generator is built and recordings are collected.
 
+**Privacy cleanup (Oct 17)**
+- Removed people's names from all docs and code; helpers are referred to by role (product/design reviewer, voice talent, Spanish reviewer). Rule added to docs 03 and 04.
+- Commits now use the GitHub no-reply address (`329644153+CoachMalcolm@users.noreply.github.com`); "Keep my email addresses private" is on in GitHub settings.
+- Merged working branches deleted. Earlier commits still contain names and the personal email in history; making the repo private hides them. History rewrite judged not worth the risk (no forks).
+
+**Hosting move (in progress, Oct 17)**
+- Why: GitHub Pages doesn't allow running a business on it (any plan), and Free can't publish from a private repo. GitHub Pro was considered and rejected — it wouldn't lift the business rule.
+- Plan: code stays on GitHub (private, **Free** plan); the site is served by **Cloudflare Pages** (free, commercial use allowed, unlimited static traffic). Cloudflare builds the site itself, which also removes ~80% of GitHub Actions minutes (deploys).
+- Steps: 1 ✅ email private · 2 ✅ old branches deleted · 3 ☐ Malcolm creates Cloudflare account · 4 ☐ connect Cloudflare Pages to the repo (build `npm run build`, output `dist`) · 5 ☐ test new address, update links (docs, review guide, tester link) · 6 ☐ make repo private · 7 ☐ turn off GitHub Pages.
+- Ready: `astro.config.mjs` builds for either address; `scripts/check-root-build.mjs` (in the Build check) verifies the root-address build has no broken or old-path links.
+
 **Housekeeping**
 - README rewritten; `docs/build-spec.md` restored with corrections log; site URL fixed to `coachmalcolm.github.io`.
 - Security: The Program's coach key was exposed in its public README; Malcolm rotated it in both Apps Scripts, removed it from the README, and archived the old workout-tracker deployment.
@@ -119,6 +131,7 @@ Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, 
 ## 6. Left to do
 
 **Next up**
+- Finish the hosting move (steps 3–7 above).
 - Act on the product/design review feedback.
 - Spanish (first additional language): i18n structure for UI strings + timer phrases; content structured per locale; AI-drafted translations reviewed by Malcolm's Spanish reviewer before publishing.
 - Custom voice: ElevenLabs Instant Voice Clone of Malcolm (he is creating the account). Pre-generate fixed cue phrases per language as audio files via a GitHub workflow using an `ELEVENLABS_API_KEY` repo secret. Custom interval names need a backend → fall back to device voice until then.

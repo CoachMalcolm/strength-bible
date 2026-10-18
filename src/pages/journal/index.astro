@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 const items = (await getCollection('journal')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // Interactive pages that live as real Astro routes, not content-collection entries
 const interactive = [

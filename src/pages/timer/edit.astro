@@ -6,7 +6,7 @@
  *   /timer/edit?from=X     start a new timer from a preset or saved timer
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 <BaseLayout title="Timer Builder">
   <div id="builder" data-base={base} class="max-w-3xl pb-28">

@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import MasteryBoard from '../../components/MasteryBoard.astro';
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 <BaseLayout title="Mastery Tracker">
   <article class="max-w-3xl">

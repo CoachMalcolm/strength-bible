@@ -6,6 +6,6 @@ export async function getStaticPaths() {
   return items.map(item => ({ params: { slug: item.slug }, props: { item } }));
 }
 const { item } = Astro.props;
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 <ContentDetail title={item.data.title} icon={item.data.icon} category="Mobility" levels={item.data.levels ?? []} sources={item.data.sources} backHref={`${base}/mobility`} backLabel="Back to Mobility" slug={item.slug} />

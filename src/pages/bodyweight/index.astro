@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 const items = (await getCollection('bodyweight')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
 <BaseLayout title="Bodyweight">
   <h1 class="text-4xl font-bold mb-8">Bodyweight Exercises</h1>

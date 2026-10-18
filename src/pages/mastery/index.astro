@@ -6,7 +6,7 @@ const lifts = (await getCollection('lifts')).sort((a, b) => (a.data.order ?? 99)
 const bodyweight = (await getCollection('bodyweight')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 const mobility = (await getCollection('mobility')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 const programs = (await getCollection('programs')).sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const sections = [
   { title: 'Concepts', items: concepts, path: 'concepts' },
