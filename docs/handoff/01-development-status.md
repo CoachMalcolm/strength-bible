@@ -32,7 +32,7 @@ Core ideas:
 2. Push → **Build check** workflow (`.github/workflows/check.yml`) runs: Node 22, `npm ci`, timer engine tests, `astro build`, page checks (`scripts/verify-build.mjs`), browser smoke test with Playwright (`scripts/smoke-test.mjs`).
 3. Green → merge to `main` → **Deploy** workflow (`deploy.yml`) publishes to GitHub Pages.
 4. Results appear as annotations on the check run (max 10 notices per step are shown; the step's pass/fail is authoritative).
-5. **Site audit** (`.github/workflows/audit.yml`, runs on `jamie-review` and `audit/**` branches): visits every page at 390px, checks links, script errors, raw formatting and overflow, takes screenshots of key pages, and force-pushes `report.md` + `screens/` to the `audit-reports` branch. Read it with `git fetch origin +audit-reports:refs/remotes/origin/audit-reports` then `git show origin/audit-reports:report.md`.
+5. **Site audit** (`.github/workflows/audit.yml`, runs on `review/**` and `audit/**` branches): visits every page at 390px, checks links, script errors, raw formatting and overflow, takes screenshots of key pages, and force-pushes `report.md` + `screens/` to the `audit-reports` branch. Read it with `git fetch origin +audit-reports:refs/remotes/origin/audit-reports` then `git show origin/audit-reports:report.md`.
 
 The Claude cloud workspace cannot reach the npm registry, so builds/tests that need packages run on GitHub, not locally. `node --experimental-strip-types scripts/test-timer.ts` runs locally (no packages needed).
 
@@ -92,13 +92,13 @@ Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, 
 - **Ducking:** sets `navigator.audioSession.type = 'transient'` where supported (newer Safari) so music is lowered, not paused. Elsewhere the phone decides.
 - Share links carry the whole timer; "Save to my timers" on open.
 
-**Review prep (for Jamie Paradis, product/design reviewer)**
+**Review prep (for the product/design reviewer)**
 - "Start here" guide pages (`/guide/…`) for How to Use, Adaptive System, Living Journal, Safety — the content existed but was never displayed; linked from the top of the home page.
 - Program, story, journal and tracker pages render formatted text (`.md-body`); long fill-in lines wrap on phones.
 - Glossary highlighting on programs, stories, journal and guide pages.
 - Journal: date defaults to today; reflections refresh after saving; saved text escaped.
 - Network fits phones; tap once to select, again to open.
-- Review guide for Jamie: a Claude Doc ("Strength B.I.B.L.E. — Review Guide for Jamie") with walkthrough, product questions and a known-unfinished list.
+- Review guide for the product/design reviewer: a Claude Doc (kept outside the repo) with walkthrough, product questions and a known-unfinished list.
 
 **Tester tools** (turn on with `?tools=on`, off with `?tools=off`)
 - View as User / Tester / Developer. Test athletes with their own memory, started from Brand new / Halfway through / Advanced; save a copy, rename, reset, delete; real progress restored when turned off.
@@ -108,7 +108,7 @@ Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, 
 - Hides tools from normal visitors; not security. Real roles come with logins.
 
 **Voices (on the back burner)**
-- Voice plan: Coach Malcolm (Standard, Hype, NSFW, Hype NSFW), Lucia (Standard, Hype), O'Shane (Jamerican), Southern male/female (standard + slang), English accent, LGBTQ+ voice, slang voice. Real people in their natural voices only; signed consent; explicit voices kept separate.
+- Voice plan: Coach Malcolm (Standard, Hype, NSFW, Hype NSFW), a female coach (Standard, Hype), a Jamaican-American coach, Southern male/female (standard + slang), English accent, LGBTQ+ voice, slang voice. Real people in their natural voices only; signed consent; explicit voices kept separate.
 - Each voice gets its own lines per "moment" (countdown, halfway, up next, rest, motivation…), several per moment, picked at random. Tracker spreadsheet: `BIBLE-Timer-Voices.xlsx` (Malcolm keeps it; may move to Google Sheets).
 - ElevenLabs: cloning needs a paid plan (Starter ~$6/mo, ~30k credits, commercial license). Subscribe only when the generator is built and recordings are collected.
 
@@ -119,12 +119,12 @@ Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, 
 ## 6. Left to do
 
 **Next up**
-- Act on Jamie's review feedback.
+- Act on the product/design review feedback.
 - Spanish (first additional language): i18n structure for UI strings + timer phrases; content structured per locale; AI-drafted translations reviewed by Malcolm's Spanish reviewer before publishing.
 - Custom voice: ElevenLabs Instant Voice Clone of Malcolm (he is creating the account). Pre-generate fixed cue phrases per language as audio files via a GitHub workflow using an `ELEVENLABS_API_KEY` repo secret. Custom interval names need a backend → fall back to device voice until then.
 
 **Backlog**
-- Real logins with roles (after Jamie's review): move the tester tools' roles into accounts.
+- Real logins with roles (after the product/design review): move the tester tools' roles into accounts.
 - Backend for accounts / coaches / programs (Supabase vs Firebase — decision pending). Must replace the Google-Sheets + PIN + shared-coach-key model; coaches will hold minors' data.
 - Highlight glossary terms in programs and stories (they render via Astro's Markdown pipeline, not `renderMarkdown`).
 - Enforce program prerequisites (listed in 24 programs, not enforced).

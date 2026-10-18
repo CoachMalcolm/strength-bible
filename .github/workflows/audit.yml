@@ -5,7 +5,7 @@ name: Site audit
 # Results are published to the `audit-reports` branch (report.md + screens/).
 on:
   push:
-    branches: [ 'audit/**', jamie-review ]
+    branches: [ 'audit/**', 'review/**' ]
   workflow_dispatch:
 
 permissions:

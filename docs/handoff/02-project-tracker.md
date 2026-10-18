@@ -26,10 +26,10 @@ Down the road, coaches and programs will be able to use it with their own athlet
   - **Pop out:** float the timer over other apps (texts, music) on phones that allow it.
   - **Share:** send a timer to an athlete as a link.
 
-- **Tester tools** for Malcolm, Jamie and anyone helping test: a private link adds a toolbar to view the site as a user, tester or developer, switch between test athletes (brand new, halfway, advanced) that each remember their own progress, and send feedback from any page.
+- **Tester tools** for Malcolm and anyone helping test: a private link adds a toolbar to view the site as a user, tester or developer, switch between test athletes (brand new, halfway, advanced) that each remember their own progress, and send feedback from any page.
 
 **In review:**
-- **Jamie Paradis** (product and design) is reviewing the whole experience with a guided walkthrough.
+- **A product and design reviewer** is going through the whole experience with a guided walkthrough.
 
 **Being prepared:**
 - **Spanish** is the first additional language. A Spanish reviewer will check every translation before it goes live.
@@ -37,7 +37,7 @@ Down the road, coaches and programs will be able to use it with their own athlet
 
 ## What's next
 
-1. Act on Jamie's review
+1. Act on the product and design review
 2. Spanish version of the site and timer
 3. Coach voices for the timer (English, then Spanish)
 4. Choosing the system for real accounts, so athletes keep their progress on any device and coaches can follow their athletes
@@ -48,7 +48,7 @@ Down the road, coaches and programs will be able to use it with their own athlet
 
 | What | Who |
 |---|---|
-| Jamie's review feedback | Jamie |
+| Product and design review feedback | Product/design reviewer |
 | Voice recordings + signed permission from each friend | Malcolm |
 | Review the 49 glossary definitions (drafts) | Malcolm |
 | Spanish translation review (when drafts are ready) | Spanish reviewer |

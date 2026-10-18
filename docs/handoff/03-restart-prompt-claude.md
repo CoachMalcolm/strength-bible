@@ -21,7 +21,7 @@ How I work:
 - I type fast with typos — read through them.
 - Be direct. Recommend what you think is best and say why.
 - When I say "CFU", restate what you understood before acting.
-- Never put passwords, API keys or coach keys in the repo, docs, or chat.
+- Never put passwords, API keys, coach keys, email addresses or people's names in the repo or docs. Refer to helpers by role. Commit with my GitHub no-reply address.
 
 How changes ship:
 - Always work on a branch. Push it; the "Build check" workflow tests it (timer tests, build, page checks, browser smoke test).
@@ -35,7 +35,7 @@ Where we left off (Oct 17, 2026):
 - Shipped: CFU shuffle + re-teach, formatted level text, living glossary (49 draft terms), timer (builder, player, presets, share links), mini mode, pop-out (picture-in-picture), deliberate music ducking.
 - Also shipped: "Start here" guide pages, formatted program/journal/story pages, glossary on every page, journal fixes, phone-fit network, a site-audit workflow with screenshots.
 - Tester tools are live (?tools=on): roles, switchable test athletes, page tools, developer view, feedback email.
-- Jamie Paradis (product/design) is reviewing with a guide doc. Next: act on her feedback, then Spanish (I have a reviewer).
+- A product/design reviewer is reviewing with a guide doc. Next: act on her feedback, then Spanish (I have a reviewer).
 - Voices are on the back burner: multiple coach voices with their own lines, tracked in my voice spreadsheet.
 - Pending decision: backend for accounts/coaches (Supabase vs Firebase).
 
