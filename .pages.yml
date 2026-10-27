@@ -1,0 +1,323 @@
+# Pages CMS — the content editor at https://app.pagescms.org
+#
+# Every field the site uses is listed here, so saving a page in the editor
+# keeps everything that's already in it. If you add a new field to a page's
+# content (src/content/config.ts), add it here too.
+#
+# Text boxes take Markdown: **bold**, *italic*, "- " for bullet lists,
+# "1. " for numbered lists, and | pipes | for tables.
+
+media:
+  input: public/media
+  output: /media
+
+settings:
+  commit:
+    templates:
+      create: "Add {path} (content editor)"
+      update: "Edit {path} (content editor)"
+      delete: "Delete {path} (content editor)"
+      rename: "Rename {path} → {newPath} (content editor)"
+
+components:
+  body:
+    label: Page text
+    type: text
+    description: "Markdown: **bold**, *italic*, '- ' bullets, '1. ' numbered lists, | tables |."
+
+  icon:
+    label: Icon
+    type: string
+    description: One emoji, shown next to the title.
+
+  order:
+    label: Order
+    type: number
+    description: Position in the list (1 comes first). Leave blank to put it at the end.
+
+  slugList:
+    label: Linked pages
+    type: string
+    list: true
+    description: "Page IDs: the end of the page's address, e.g. progressive-overload."
+
+  videos:
+    label: Videos
+    type: object
+    list:
+      collapsible:
+        collapsed: true
+        summary: "{title}"
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: url, label: Link (YouTube etc.), type: string, required: true }
+      - { name: description, label: Note (optional), type: text }
+
+  journalPrompts:
+    label: Journal prompts
+    type: object
+    description: Questions shown in the athlete's journal for this page.
+    fields:
+      - { name: training_log_prompt, label: Training log prompt, type: text }
+      - { name: reflection_prompt, label: Reflection prompt, type: text }
+      - { name: goal_prompt, label: Goal prompt, type: text }
+
+  levels:
+    label: Levels
+    type: object
+    description: Each level is read, then checked. Passing the check unlocks the next level.
+    list:
+      collapsible:
+        collapsed: true
+        summary: "Level {level}: {title}"
+    fields:
+      - { name: level, label: Level number, type: number, required: true }
+      - { name: title, label: Level title, type: string, required: true }
+      - name: body
+        label: Lesson text
+        type: text
+        description: "Markdown: **bold**, *italic*, '- ' bullets, '1. ' numbered lists, | tables |."
+      - name: cfu
+        label: Check for Understanding
+        type: object
+        fields:
+          - { name: question, label: Question, type: text }
+          - name: options
+            label: Answers
+            type: string
+            list: true
+            description: Write them in any order. The site shuffles them for the athlete.
+          - name: correct_index
+            label: Which answer is right?
+            type: select
+            options:
+              values:
+                - { name: "0", label: "1st answer" }
+                - { name: "1", label: "2nd answer" }
+                - { name: "2", label: "3rd answer" }
+                - { name: "3", label: "4th answer" }
+                - { name: "4", label: "5th answer" }
+          - name: retry
+            label: Re-teach (optional)
+            type: text
+            description: Shown after a wrong answer. Explain the idea a different way, then ask again below.
+          - { name: retry_options, label: Re-teach answers, type: string, list: true }
+          - name: retry_correct_index
+            label: Which re-teach answer is right?
+            type: select
+            options:
+              values:
+                - { name: "0", label: "1st answer" }
+                - { name: "1", label: "2nd answer" }
+                - { name: "2", label: "3rd answer" }
+                - { name: "3", label: "4th answer" }
+                - { name: "4", label: "5th answer" }
+      - name: stories
+        label: Stories at this level
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{icon} {title}"
+        fields:
+          - { name: id, label: Story ID (end of the story's address), type: string, required: true }
+          - { name: icon, label: Icon, type: string }
+          - { name: title, label: Title, type: string }
+
+content:
+  - name: start
+    label: Start here (guide pages)
+    type: collection
+    path: src/content/front-matter
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [order, title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: category, label: Category, type: string, hidden: true, default: FrontMatter }
+      - { name: icon, component: icon }
+      - { name: order, component: order }
+      - { name: body, component: body }
+
+  - name: concepts
+    label: Concepts
+    type: collection
+    path: src/content/concepts
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [order, title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: category, label: Category, type: string, hidden: true, default: Concept }
+      - { name: icon, component: icon }
+      - { name: order, component: order }
+      - { name: levels, component: levels }
+      - { name: videos, component: videos }
+      - { name: related_concepts, component: slugList, label: Related concepts }
+      - { name: sources, label: Sources, type: string, list: true }
+      - { name: journal, component: journalPrompts }
+      - { name: body, component: body }
+
+  - name: lifts
+    label: Lifts
+    type: collection
+    path: src/content/lifts
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [order, title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: category, label: Category, type: string, hidden: true, default: Lift }
+      - { name: icon, component: icon }
+      - { name: order, component: order }
+      - { name: levels, component: levels }
+      - { name: videos, component: videos }
+      - { name: related_concepts, component: slugList, label: Related concepts }
+      - { name: sources, label: Sources, type: string, list: true }
+      - { name: journal, component: journalPrompts }
+      - { name: body, component: body }
+
+  - name: bodyweight
+    label: Bodyweight
+    type: collection
+    path: src/content/bodyweight
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [order, title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: category, label: Category, type: string, hidden: true, default: Bodyweight }
+      - { name: icon, component: icon }
+      - { name: order, component: order }
+      - { name: levels, component: levels }
+      - { name: videos, component: videos }
+      - { name: related_concepts, component: slugList, label: Related concepts }
+      - { name: sources, label: Sources, type: string, list: true }
+      - { name: journal, component: journalPrompts }
+      - { name: body, component: body }
+
+  - name: mobility
+    label: Mobility
+    type: collection
+    path: src/content/mobility
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [order, title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: category, label: Category, type: string, hidden: true, default: Mobility }
+      - { name: icon, component: icon }
+      - { name: order, component: order }
+      - { name: levels, component: levels }
+      - { name: videos, component: videos }
+      - { name: related_concepts, component: slugList, label: Related concepts }
+      - { name: sources, label: Sources, type: string, list: true }
+      - { name: journal, component: journalPrompts }
+      - { name: body, component: body }
+
+  - name: stories
+    label: Stories
+    type: collection
+    path: src/content/stories
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: icon, component: icon }
+      - { name: linked_concepts, component: slugList, label: Linked pages }
+      - { name: level, label: Best read at level, type: number }
+      - { name: body, label: Story, type: text, description: "Markdown: **bold**, *italic*, blank line between paragraphs." }
+
+  - name: programs
+    label: Programs
+    type: collection
+    path: src/content/programs
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [order, title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: category, label: Category, type: string, hidden: true, default: Program }
+      - { name: icon, component: icon }
+      - { name: order, component: order }
+      - { name: type, label: Program type, type: string, description: "e.g. foundation, linear-progression, sport-specific" }
+      - { name: prerequisites, label: Prerequisites, type: string, list: true }
+      - { name: journals, component: slugList, label: Journal templates for this program }
+      - { name: glossary_terms, component: slugList, label: Glossary terms }
+      - { name: body, component: body }
+
+  - name: glossary
+    label: Glossary
+    type: collection
+    path: src/content/glossary
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: term, sort: [term] }
+    fields:
+      - { name: term, label: Term, type: string, required: true }
+      - name: aliases
+        label: Spellings to highlight
+        type: string
+        list: true
+        description: Every way the word appears in the text (e.g. RPE, rpe, rate of perceived exertion).
+      - { name: category, label: Category, type: string }
+      - { name: short, label: Short definition (shown in the pop-up), type: text, required: true }
+      - { name: related_concepts, component: slugList, label: Related concepts }
+      - name: status
+        label: Status
+        type: select
+        options: { values: [draft, final] }
+        default: draft
+      - name: highlight
+        label: Highlight this word across the site
+        type: boolean
+        default: true
+      - { name: body, label: Full explanation, type: text }
+
+  - name: journal
+    label: Journal templates
+    type: collection
+    path: src/content/journal
+    format: yaml-frontmatter
+    filename: "{primary}.md"
+    view: { primary: title, sort: [order, title] }
+    fields:
+      - { name: title, label: Title, type: string, required: true }
+      - { name: category, label: Category, type: string, hidden: true, default: Journal }
+      - { name: icon, component: icon }
+      - { name: order, component: order }
+      - { name: type, label: Template type, type: string, description: "program-log or template" }
+      - { name: program, label: Program ID, type: string }
+      - { name: cycle_length_weeks, label: Cycle length (weeks), type: number }
+      - { name: sessions_per_week, label: Sessions per week, type: number }
+      - { name: auto_generate_threshold, label: Auto-generate threshold, type: number }
+      - name: fields
+        label: Log fields
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{name} ({type})"
+        fields:
+          - { name: name, label: Field name, type: string, required: true }
+          - name: type
+            label: Kind
+            type: select
+            options: { values: [text, number, select, date] }
+          - { name: options, label: Choices (for select), type: string, list: true }
+          - { name: min, label: Min, type: number }
+          - { name: max, label: Max, type: number }
+          - { name: unit, label: Unit, type: string }
+          - { name: required, label: Required, type: boolean }
+      - { name: prompts, label: Prompts, type: text, list: true }
+      - { name: frequency, label: How often, type: string }
+      - name: frequency_by_level
+        label: How often, by athlete level
+        type: object
+        fields:
+          - { name: novice, label: Novice, type: string }
+          - { name: intermediate, label: Intermediate, type: string }
+          - { name: advanced, label: Advanced, type: string }
+      - { name: revisit_interval_days, label: Revisit every (days), type: number }
+      - { name: body, component: body }

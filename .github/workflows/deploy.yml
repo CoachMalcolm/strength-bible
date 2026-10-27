@@ -28,3 +28,28 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # If a change (for example a page saved in the content editor) stops the
+  # site from building, the live site stays as it was and an issue is opened
+  # so GitHub emails the owner with the error.
+  report-failure:
+    needs: [build, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue with the error
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          gh issue create --repo "${{ github.repository }}" \
+            --title "Site update didn't publish: ${COMMIT_MSG%%$'\n'*}" \
+            --body "The last change couldn't be built, so the live site is still showing the version before it.
+
+          **Change:** ${COMMIT_MSG%%$'\n'*}
+          **Details:** $RUN_URL
+
+          Most often this is a typo in a page saved from the content editor, such as a missing title or a level without a number. Open that page in the editor, fix it, and save again. Or ask Claude to look at the details link."

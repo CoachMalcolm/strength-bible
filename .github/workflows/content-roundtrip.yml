@@ -1,0 +1,36 @@
+# Checks that pages saved from the content editor (Pages CMS) build exactly
+# like the hand-written ones. Run it from the Actions tab, or push a test/** branch.
+name: Content editor round-trip
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ 'test/**' ]
+
+jobs:
+  roundtrip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Build as-is
+        run: npm run build && mv dist dist-before
+      - name: Re-save every page the way the editor would
+        run: node scripts/content-roundtrip.mjs && git diff --stat | tail -1
+      - name: Build again
+        run: npm run build
+      - name: Compare
+        run: |
+          if diff -rq dist-before dist > diff.txt; then
+            echo "::notice title=Round-trip::Editor-style saves build identically ($(find dist -name '*.html' | wc -l) pages)."
+          else
+            echo "::error title=Round-trip::$(wc -l < diff.txt) files differ: $(head -c 3000 diff.txt | tr '\n' ' ')"
+            f=$(grep -m1 -o 'dist/[^ ]*\.html' diff.txt || true)
+            if [ -n "$f" ]; then
+              b=${f/dist\//dist-before/}
+              echo "::error title=First difference::$(diff <(sed 's/></>\n</g' "$b") <(sed 's/></>\n</g' "$f") | head -c 3500 | tr '\n' ' ')"
+            fi
+            exit 1
+          fi
