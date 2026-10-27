@@ -47,6 +47,10 @@ Astro 4 (static), Tailwind 3, TypeScript in Astro `<script>` blocks. No backend 
 - **Tester tools:** `components/DevTools.astro` + `lib/devtools.ts`. Turned on per browser with `?tools=on`. Test athletes are snapshots of all `bible:` localStorage keys.
 - **Timer:** `model.ts` (format, presets) → `engine.ts` (wall-clock deadlines; `update()` catches up after sleep and skips stale cues; `snapshot()`/`restore()`) → `runner.ts` (one running session; plays cues; persists to `bible:timer-session` so the timer continues across pages) → UIs: `pages/timer/run.astro` (full player), `components/MiniTimer.astro` (draggable bubble on every page), `lib/timer/pip.ts` (picture-in-picture pop-out). `feedback.ts` holds beeps/speech/vibration/wake lock/ducking.
 
+## Content editor
+
+The owner edits content in Pages CMS, configured by `.pages.yml`. His saves land directly on `main`. Before you change content files, pull first. If you add or rename a frontmatter field, update `src/content/config.ts` **and** `.pages.yml`. Keep the `tidied(...)` wrapper on every schema.
+
 ## Hosting
 
 The site is moving from GitHub Pages (`/strength-bible` path) to Cloudflare Pages (served from the root). Never hard-code `/strength-bible` or `/` in links: use `const base = import.meta.env.BASE_URL.replace(/\/$/, "")` and `${base}/path`. `astro.config.mjs` picks the base from `CF_PAGES`. The Build check also builds for the root address and fails on broken or old-path links (`scripts/check-root-build.mjs`).

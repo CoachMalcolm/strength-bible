@@ -28,6 +28,8 @@ Down the road, coaches and programs will be able to use it with their own athlet
 
 - **Tester tools** for Malcolm and anyone helping test: a private link adds a toolbar to view the site as a user, tester or developer, switch between test athletes (brand new, halfway, advanced) that each remember their own progress, and send feedback from any page.
 
+**New: you can edit the content yourself.** Log in at app.pagescms.org with GitHub, pick a page, change it, save. It's live in about 2 minutes. See the "Editing the Strength B.I.B.L.E." guide.
+
 **In progress now:**
 - **Moving the website to a new free home (Cloudflare)** and making the project files private. The website stays free and allows selling later. The site address will change; the new link will be shared when it's ready.
 - **Privacy:** people's names and email addresses have been removed from the project files. Helpers are referred to by role.

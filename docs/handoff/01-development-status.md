@@ -4,7 +4,7 @@
 **Owner:** Coach Malcolm (GitHub: `CoachMalcolm`)
 **Repo:** https://github.com/CoachMalcolm/strength-bible
 **Live site:** https://coachmalcolm.github.io/strength-bible/
-**Last updated:** 2026-10-17 (evening)
+**Last updated:** 2026-10-27
 
 > Refresh this file at the end of every work session. Never put passwords, API keys or coach keys in it — the repo is public.
 
@@ -124,6 +124,15 @@ Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, 
 - Steps: 1 ✅ email private · 2 ✅ old branches deleted · 3 ☐ Malcolm creates Cloudflare account · 4 ☐ connect Cloudflare Pages to the repo (build `npm run build`, output `dist`) · 5 ☐ test new address, update links (docs, review guide, tester link) · 6 ☐ make repo private · 7 ☐ turn off GitHub Pages.
 - Ready: `astro.config.mjs` builds for either address; `scripts/check-root-build.mjs` (in the Build check) verifies the root-address build has no broken or old-path links.
 
+**Content editor (Oct 27)**
+- Malcolm edits content himself in Pages CMS (https://app.pagescms.org, free, GitHub login). Config: `.pages.yml` at the repo root maps every collection and every field in use, including levels, CFU, re-teach, stories, videos, journal prompts and journal-template fields. A field missing from `.pages.yml` may be dropped when the editor saves a page, so **add any new frontmatter field to both `config.ts` and `.pages.yml`**.
+- Saves commit straight to `main`, which publishes.
+- `src/content/config.ts` wraps every schema in `tidied(...)`. That removes the blanks, nulls and empty lists the editor writes, turns CFU answer pickers from `"1"` back into `1`, and defaults `category` and `icon`.
+- `scripts/content-roundtrip.mjs` plus `.github/workflows/content-roundtrip.yml` (run it manually, or push a `test/**` branch) re-save every page the way the editor might, rebuild, and require identical output.
+- `deploy.yml`: if a publish fails, a `report-failure` job opens an issue, so the owner gets an email. The live site stays on the last good build.
+- Lifts schema now accepts `videos` and `related_concepts`, but the lift page doesn't render videos yet.
+- Malcolm's how-to is a Claude Doc titled "Editing the Strength B.I.B.L.E.".
+
 **Housekeeping**
 - README rewritten; `docs/build-spec.md` restored with corrections log; site URL fixed to `coachmalcolm.github.io`.
 - Security: The Program's coach key was exposed in its public README; Malcolm rotated it in both Apps Scripts, removed it from the README, and archived the old workout-tracker deployment.
@@ -131,6 +140,8 @@ Tester tools keep their own settings under `bibledev:` (`settings`, `profiles`, 
 ## 6. Left to do
 
 **Next up**
+- Content: Malcolm edits small things in the editor and sends bigger pieces (new concepts, stories, new sections such as nutrition, mindset, life skills, *Invictus*) to Claude.
+- Show videos on lift pages (the schema has them now).
 - Finish the hosting move (steps 3–7 above).
 - Act on the product/design review feedback.
 - Spanish (first additional language): i18n structure for UI strings + timer phrases; content structured per locale; AI-drafted translations reviewed by Malcolm's Spanish reviewer before publishing.

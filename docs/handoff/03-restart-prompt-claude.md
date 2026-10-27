@@ -39,6 +39,7 @@ Where we left off (Oct 17, 2026):
 - Voices are on the back burner: multiple coach voices with their own lines, tracked in my voice spreadsheet.
 - Privacy cleanup done: names and emails out of all files; commits use my GitHub no-reply address.
 - In the middle of moving hosting to Cloudflare Pages (free, commercial use OK) and making the repo private on GitHub's free plan (no GitHub Pro). See "Hosting move" in doc 01 for which steps are done. The site builds for either address already.
+- Content editor is live: I edit content myself in Pages CMS (`.pages.yml`), and my saves go straight to main. I send you the bigger pieces and new sections to build.
 - Pending decision: backend for accounts/coaches (Supabase vs Firebase).
 
 [Add anything new here before pasting.]
