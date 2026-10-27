@@ -23,7 +23,12 @@ jobs:
         run: npm run build
       - name: Compare
         run: |
-          if diff -rq dist-before dist > diff.txt; then
+          # graph.json carries a build timestamp; compare it without that.
+          jq -S 'del(.generated)' dist-before/network/graph.json > a.json
+          jq -S 'del(.generated)' dist/network/graph.json > b.json
+          diff -q a.json b.json > /dev/null || echo "Files dist-before/network/graph.json and dist/network/graph.json differ (beyond the timestamp)" > graph-diff.txt
+          diff -rq --exclude=graph.json dist-before dist > diff.txt; cat graph-diff.txt >> diff.txt 2>/dev/null
+          if [ ! -s diff.txt ]; then
             echo "::notice title=Round-trip::Editor-style saves build identically ($(find dist -name '*.html' | wc -l) pages)."
           else
             echo "::error title=Round-trip::$(wc -l < diff.txt) files differ: $(head -c 3000 diff.txt | tr '\n' ' ')"
